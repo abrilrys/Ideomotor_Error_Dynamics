@@ -2,6 +2,7 @@
 
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
 EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/softbank/nao/protos/Nao.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/softbank/nao/protos/VisualArmature.proto"
 
 WorldInfo {
 }
@@ -20,6 +21,11 @@ RectangleArena {
 Nao {
   degreeOfFreedom 21
   rightHandSlot [
+    VisualArmature {
+      translation 0 0.02 0
+      rotation 0 0 1 1.5707963267948968
+      dimension 0.05 0.05 0.05
+    }
     GPS {
       name "hand_gps"
     }

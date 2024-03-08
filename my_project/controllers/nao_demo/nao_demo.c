@@ -396,8 +396,10 @@ static void set_arms_angle(double angleShoulderPitch,double angleShoulderRoll, d
 }
 
 static void save_image(WbDeviceTag camera){
- 
- wb_camera_save_image(camera, "/home/abrilrys/Downloads/uno.png", 100);
+ //linux
+ //wb_camera_save_image(camera, "/home/abrilrys/Downloads/uno.png", 100);
+ //windows
+ wb_camera_save_image(camera, "C:\\Users\\abril\\Documents\\UAEM Universidad\\000 UAEM Octavo Semestre\\images\\uno.png", 100);
 }
 
 static void print_help() {
@@ -464,7 +466,7 @@ static void run_command(int key) {
       print_camera_image(CameraTop);
       break;
     case 'W':
-      set_arms_angle(-0.96, 0.3,2,1);
+      set_arms_angle(0.1, 0.1,1,1);
       //start_motion(wipe_forehead);
       break;
     case WB_KEYBOARD_HOME:

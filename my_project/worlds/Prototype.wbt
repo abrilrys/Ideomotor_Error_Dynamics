@@ -1,13 +1,33 @@
 #VRML_SIM R2023b utf8
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
-EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/RectangleArena.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/softbank/nao/protos/Nao.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/robots/softbank/nao/protos/VisualArmature.proto"
+
 WorldInfo {
 }
 Viewpoint {
-  orientation -0.5773 0.5773 0.5773 2.0944
-  position 0 0 10
+  orientation -0.2283651260738951 0.0035177353036564968 0.973569203873863 3.1116135732974777
+  position 1.4740708100170323 -0.024812259909094005 0.992890365524534
 }
 TexturedBackground {
 }
 TexturedBackgroundLight {
+}
+RectangleArena {
+  floorSize 5 5
+  floorTileSize 1 1
+}
+Nao {
+  degreeOfFreedom 21
+  rightHandSlot [
+    VisualArmature {
+      translation 0 0.02 0
+      rotation 0 0 1 1.5707963267948968
+      dimension 0.05 0.05 0.05
+    }
+    GPS {
+      name "hand_gps"
+    }
+  ]
 }
