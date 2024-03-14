@@ -464,7 +464,7 @@ static void run_command(int key) {
       print_camera_image(CameraTop);
       break;
     case 'W':
-      set_arms_angle(-0.96, 0.3,2,1);
+      set_arms_angle(-1, -0.6,-1,1.2);
       //start_motion(wipe_forehead);
       break;
     case WB_KEYBOARD_HOME:
@@ -511,7 +511,11 @@ int main() {
 
   // print instructions
   //print_help();
-
+  FILE *file = fopen("motor_angles.csv", "w");
+  if (!file) {
+    printf("Error opening file for writing.\n");
+    return 1;
+  }
   
 
   // until a key is pressed
@@ -525,13 +529,27 @@ int main() {
   //wbu_motion_set_loop(hand_wave, false);
 
   // read keyboard and execute user commands
-  while (1) {
+  /*while (1) {
     if (key > 0)
       run_command(key);
 
     simulation_step();
     key = wb_keyboard_get_key();
-  }
-  
+    
+  }*/
+  //fprintf(file, "Key,RShoulderPitch,RShoulderRoll,RElbowYaw,RElbowRoll\n");
+  wb_motor_set_position(LShoulderPitch,2);  
+  for (int i = 0; i < 100; i++) {
+        // Generate random angles within the specified range
+        double randomShoulderPitch = ((double)rand() / RAND_MAX) * (maxRShoulderPitchPosition - minRShoulderPitchPosition) + minRShoulderPitchPosition;
+        double randomShoulderRoll = ((double)rand() / RAND_MAX) * (maxRShoulderRollPosition - minRShoulderRollPosition) + minRShoulderRollPosition;
+        double randomElbowYaw = ((double)rand() / RAND_MAX) * (maxRElbowYawPosition - minRElbowYawPosition) + minRElbowYawPosition;
+        double randomElbowRoll = ((double)rand() / RAND_MAX) * (maxRElbowRollPosition - minRElbowRollPosition) + minRElbowRollPosition;
+
+        set_arms_angle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll);
+        fprintf(file, "%d, %lf,%lf,%lf,%lf\n",i,randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll);
+    }
+
+    fclose(file);
   return 0;
 }
