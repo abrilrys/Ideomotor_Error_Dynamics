@@ -19,6 +19,8 @@ from controller import Robot, Keyboard, Motion
 import random
 import numpy as np
 import time
+import csv
+
 
 class Nao (Robot):
     PHALANX_MAX = 8
@@ -88,7 +90,11 @@ class Nao (Robot):
                 line = line + str(int(gray))
             print(line)
 
-
+    def printGps(self):
+        p = self.gps.getValues()
+        print('----------gps----------')
+        print('position: [ x y z ] = [%f %f %f]' % (p[0], p[1], p[2]))
+        
     def findAndEnableDevices(self):
         # get the time step of the current world.
         self.timeStep = int(self.getBasicTimeStep())
@@ -108,8 +114,9 @@ class Nao (Robot):
         self.gyro.enable(4 * self.timeStep)
 
         # gps
-        self.gps = self.getDevice('gps')
-        self.gps.enable(4 * self.timeStep)
+        self.gps = self.getDevice('hand_gps')
+        self.gps.enable(4)
+        #self.printGps()
 
         # inertial unit
         self.inertialUnit = self.getDevice('inertial unit')
@@ -197,29 +204,50 @@ class Nao (Robot):
         
     def run(self):
         
-        self.LShoulderPitch.setPosition(2)
-        random.seed(10)
         
-        #self.RShoulderPitch.setPosition(1.9417)
-        #self.RShoulderRoll.setPosition(-0.297)
-        #self.RElbowYaw.setPosition(-0.0466)
-        #self.RElbowRoll.setPosition(1.0957)
-        
-        #loop_delay = 0.5  # Adjust the delay as needed
-        while robot.step(64) != -1:
-        
-            # Generate random angles within the specified range
-            randomShoulderPitch =  round(random.uniform(self.minRShoulderPitchPosition,self.maxRShoulderPitchPosition),4)
-            randomShoulderRoll = round(random.uniform(self.minRShoulderRollPosition, self.maxRShoulderRollPosition),4)
-            randomElbowYaw = round(random.uniform(self.minRElbowYawPosition, self.maxRElbowYawPosition),4)
-            randomElbowRoll = round(random.uniform(self.minRElbowRollPosition, self.maxRElbowRollPosition),4)
-            #print(randomShoulderPitch,randomShoulderRoll,randomElbowYaw,randomElbowRoll)
-            # Set the random angles using the function
-            self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
+        with open("motor_angles.csv", "w",newline='') as  motor_csvfile, \
+             open("gps_hand.csv", "w", newline='') as gps_csvfile:
+            motor_writer = csv.writer(motor_csvfile)
+            gps_writer = csv.writer(gps_csvfile)
+            #motor_writer.writerow(["Index", "ShoulderPitch", "ShoulderRoll", "ElbowYaw", "ElbowRoll"])
+            #gps_writer.writerow(["Index", "X", "Y", "Z"])
+            self.LShoulderPitch.setPosition(2)
+            random.seed(10)
             
-            #time.sleep(loop_delay)
-
-
+            #self.RShoulderPitch.setPosition(1.9417)
+            #self.RShoulderRoll.setPosition(-0.297)
+            #self.RElbowYaw.setPosition(-0.0466)
+            #self.RElbowRoll.setPosition(1.0957)
+            
+            i = 0  # Initialize iteration counter
+            max_iterations = 100
+    
+            #loop_delay = 0.5  # Adjust the delay as needed
+            while robot.step(self.timeStep) != -1:
+            
+                # Generate random angles within the specified range
+                randomShoulderPitch =  round(random.uniform(self.minRShoulderPitchPosition,self.maxRShoulderPitchPosition),4)
+                randomShoulderRoll = round(random.uniform(self.minRShoulderRollPosition, self.maxRShoulderRollPosition),4)
+                randomElbowYaw = round(random.uniform(self.minRElbowYawPosition, self.maxRElbowYawPosition),4)
+                randomElbowRoll = round(random.uniform(self.minRElbowRollPosition, self.maxRElbowRollPosition),4)
+                #print(randomShoulderPitch,randomShoulderRoll,randomElbowYaw,randomElbowRoll)
+                # Set the random angles using the function
+                self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
+                   
+                # Get GPS data
+                gps_data = self.gps.getValues()
+                #print(self.gps.getSamplingPeriod())
+                #print('----------gps----------')
+                #print('position: [ x y z ] = [%f %f %f]' % (gps_data[0], gps_data[1], gps_data[2]))
+                time.sleep(1)
+                motor_writer.writerow([i, randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll])
+                gps_writer.writerow([i,gps_data[0], gps_data[1], gps_data[2]])
+                
+                i += 1
+                
+                if i>=max_iterations:
+                    break
+                
 # create the Robot instance and run main loop
 robot = Nao()
 robot.run()
