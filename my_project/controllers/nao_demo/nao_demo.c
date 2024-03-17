@@ -84,6 +84,7 @@ static double minRElbowYawPosition;
 static double maxRElbowRollPosition;
 static double minRElbowRollPosition;
 
+
 static void find_and_enable_devices() {
   // camera
   CameraTop = wb_robot_get_device("CameraTop");
@@ -527,13 +528,27 @@ int main() {
   //wbu_motion_set_loop(hand_wave, false);
 
   // read keyboard and execute user commands
-  while (1) {
+  /*while (1) {
     if (key > 0)
       run_command(key);
 
     simulation_step();
     key = wb_keyboard_get_key();
-  }
+  }*/
+  
+   while (wb_robot_step(64) != -1) {
+        // Generate random angles within the specified range
+        double randomShoulderPitch = ((double)rand() / RAND_MAX) * (maxRShoulderPitchPosition - minRShoulderPitchPosition) + minRShoulderPitchPosition;
+        double randomShoulderRoll = ((double)rand() / RAND_MAX) * (maxRShoulderRollPosition - minRShoulderRollPosition) + minRShoulderRollPosition;
+        double randomElbowYaw = ((double)rand() / RAND_MAX) * (maxRElbowYawPosition - minRElbowYawPosition) + minRElbowYawPosition;
+        double randomElbowRoll = ((double)rand() / RAND_MAX) * (maxRElbowRollPosition - minRElbowRollPosition) + minRElbowRollPosition;
+
+        // Set the random angles using the function
+        set_arms_angle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll);
+    }
+   
+    // Cleanup
+    wb_robot_cleanup();
   
   return 0;
 }
