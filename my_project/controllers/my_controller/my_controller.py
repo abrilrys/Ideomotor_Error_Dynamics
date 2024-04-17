@@ -20,6 +20,8 @@ import random
 import numpy as np
 import time
 import csv
+import pickle
+import minisom
 
 
 class Nao (Robot):
@@ -250,4 +252,11 @@ class Nao (Robot):
                 
 # create the Robot instance and run main loop
 robot = Nao()
-robot.run()
+#robot.run()
+
+with open('somVisual.p', 'rb') as infile:
+    somVisual = pickle.load(infile)
+
+with open('somArm.p', 'rb') as infile:
+    somArm = pickle.load(infile)
+
