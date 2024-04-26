@@ -1,26 +1,12 @@
-# Copyright 1996-2023 Cyberbotics Ltd.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-"""Example of Python controller for Nao robot.
-   This demonstrates how to access sensors and actuators"""
-
 from controller import Robot, Keyboard, Motion
 import random
 import numpy as np
+import pandas as pd
 import time
 import csv
-
+import pickle
+import minisom
+from minisom import MiniSom
 
 class Nao (Robot):
     PHALANX_MAX = 8
@@ -105,71 +91,11 @@ class Nao (Robot):
         self.cameraTop.enable(4 * self.timeStep)
         self.cameraBottom.enable(4 * self.timeStep)
 
-        # accelerometer
-        self.accelerometer = self.getDevice('accelerometer')
-        self.accelerometer.enable(4 * self.timeStep)
-
-        # gyro
-        self.gyro = self.getDevice('gyro')
-        self.gyro.enable(4 * self.timeStep)
-
         # gps
         self.gps = self.getDevice('hand_gps')
         self.gps.enable(4)
         #self.printGps()
 
-        # inertial unit
-        self.inertialUnit = self.getDevice('inertial unit')
-        self.inertialUnit.enable(self.timeStep)
-
-        # ultrasound sensors
-        self.us = []
-        usNames = ['Sonar/Left', 'Sonar/Right']
-        for i in range(0, len(usNames)):
-            self.us.append(self.getDevice(usNames[i]))
-            self.us[i].enable(self.timeStep)
-
-        # foot sensors
-        self.fsr = []
-        fsrNames = ['LFsr', 'RFsr']
-        for i in range(0, len(fsrNames)):
-            self.fsr.append(self.getDevice(fsrNames[i]))
-            self.fsr[i].enable(self.timeStep)
-
-        # foot bumpers
-        self.lfootlbumper = self.getDevice('LFoot/Bumper/Left')
-        self.lfootrbumper = self.getDevice('LFoot/Bumper/Right')
-        self.rfootlbumper = self.getDevice('RFoot/Bumper/Left')
-        self.rfootrbumper = self.getDevice('RFoot/Bumper/Right')
-        self.lfootlbumper.enable(self.timeStep)
-        self.lfootrbumper.enable(self.timeStep)
-        self.rfootlbumper.enable(self.timeStep)
-        self.rfootrbumper.enable(self.timeStep)
-
-        # there are 7 controlable LED groups in Webots
-        self.leds = []
-        self.leds.append(self.getDevice('ChestBoard/Led'))
-        self.leds.append(self.getDevice('RFoot/Led'))
-        self.leds.append(self.getDevice('LFoot/Led'))
-        self.leds.append(self.getDevice('Face/Led/Right'))
-        self.leds.append(self.getDevice('Face/Led/Left'))
-        self.leds.append(self.getDevice('Ears/Led/Right'))
-        self.leds.append(self.getDevice('Ears/Led/Left'))
-
-        # get phalanx motor tags
-        # the real Nao has only 2 motors for RHand/LHand
-        # but in Webots we must implement RHand/LHand with 2x8 motors
-        self.lphalanx = []
-        self.rphalanx = []
-        self.maxPhalanxMotorPosition = []
-        self.minPhalanxMotorPosition = []
-        for i in range(0, self.PHALANX_MAX):
-            self.lphalanx.append(self.getDevice("LPhalanx%d" % (i + 1)))
-            self.rphalanx.append(self.getDevice("RPhalanx%d" % (i + 1)))
-
-            # assume right and left hands have the same motor position bounds
-            self.maxPhalanxMotorPosition.append(self.rphalanx[i].getMaxPosition())
-            self.minPhalanxMotorPosition.append(self.rphalanx[i].getMinPosition())
 
         # right arm motors
         self.RShoulderPitch = self.getDevice("RShoulderPitch")
@@ -214,11 +140,6 @@ class Nao (Robot):
             self.LShoulderPitch.setPosition(2)
             random.seed(10)
             
-            #self.RShoulderPitch.setPosition(1.9417)
-            #self.RShoulderRoll.setPosition(-0.297)
-            #self.RElbowYaw.setPosition(-0.0466)
-            #self.RElbowRoll.setPosition(1.0957)
-            
             i = 0  # Initialize iteration counter
             max_iterations = 100
     
@@ -230,7 +151,7 @@ class Nao (Robot):
                 randomShoulderRoll = round(random.uniform(self.minRShoulderRollPosition, self.maxRShoulderRollPosition),4)
                 randomElbowYaw = round(random.uniform(self.minRElbowYawPosition, self.maxRElbowYawPosition),4)
                 randomElbowRoll = round(random.uniform(self.minRElbowRollPosition, self.maxRElbowRollPosition),4)
-                #print(randomShoulderPitch,randomShoulderRoll,randomElbowYaw,randomElbowRoll)
+                
                 # Set the random angles using the function
                 self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
                    
@@ -248,6 +169,111 @@ class Nao (Robot):
                 if i>=max_iterations:
                     break
                 
+
+
+somAngles = None
+somVisual = None
+
+def generateAnglesSOM():
+    
+    global somAngles
+    
+    # Load data
+    columns = ['Key','RShoulderPitch', 'RShoulderRoll', 'RElbowYaw', 'RElbowRoll']
+    data = pd.read_csv('motor_angles.csv', names=columns, sep=',', engine='python')
+
+
+    target = data['Key'].values
+
+    # Remove first column 
+    data = data[data.columns[1:]]
+    
+    # Data normalization
+    data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
+    data = data.values
+
+    # Initialization and training
+    n_neurons = 5
+    m_neurons = 5
+
+    somAngles = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=1.5, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
+
+    somAngles.pca_weights_init(data)
+    somAngles.train(data, 1000, verbose=True)  # random training
+    
+    
+def generateVisualSOM():
+    
+    global somVisual
+    
+    columns = ['Key','X', 'Y', 'Z']
+    data = pd.read_csv('gps_hand.csv', names=columns, sep=',', engine='python')
+    
+    
+    target = data['Key'].values
+    
+    # Remove first column 
+    data = data[data.columns[1:]]
+    # Data normalization
+    data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
+    data = data.values
+    
+    # Initialization and training
+    n_neurons = 5
+    m_neurons = 5
+    
+    somVisual = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=1.5, learning_rate=.5, 
+                  neighborhood_function='gaussian', random_seed=0, topology='rectangular')
+    
+    somVisual.pca_weights_init(data)
+    somVisual.train(data, 1000, verbose=True)  # random training
+
 # create the Robot instance and run main loop
 robot = Nao()
-robot.run()
+#robot.run()
+
+generateAnglesSOM()
+generateVisualSOM()
+
+motor_data = []
+gps_data = []
+
+# Leer los angulos de los motores del CSV
+with open("motor_angles.csv", "r", newline='') as motor_csvfile:
+    motor_reader = csv.reader(motor_csvfile)
+    next(motor_reader)  # Pasar el encabezado
+    for row in motor_reader:
+        motor_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
+
+# Leer los datos del GPS del CSV
+with open("gps_hand.csv", "r", newline='') as gps_csvfile:
+    gps_reader = csv.reader(gps_csvfile)
+    next(gps_reader)  # Pasar el encabezado
+    for row in gps_reader:
+        gps_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
+
+#print(somVisual.winner(random.choice(gps_data)));
+
+# Obtener todas las coordinadas del som visual
+visual_coordinates = [somVisual.winner(entry) for entry in gps_data]
+
+# Obtener todas las coordinadas del som motor
+motor_coordinates = [somAngles.winner(entry) for entry in motor_data]
+
+# Crear un nuevo conjunto de datos que consiste en todas las combinaciones de las coordenadas
+combined_dataset = [(visual_coord, motor_coord) for visual_coord, motor_coord in zip(visual_coordinates, motor_coordinates)]
+combined_dataset = np.array(combined_dataset)
+print(combined_dataset.shape[1])
+
+# Initialization and training
+n_neurons_combined = 5
+m_neurons_combined = 5
+    
+somCombined = MiniSom(n_neurons_combined, m_neurons_combined, combined_dataset.shape[1], sigma=1.5, learning_rate=.5, 
+                  neighborhood_function='gaussian', random_seed=0, topology='rectangular')
+    
+somCombined.pca_weights_init(combined_dataset)
+somCombined.train(combined_dataset, 1000, verbose=True)  # random training
+
+print(somCombined.winner(random.choice(combined_dataset)));
+
