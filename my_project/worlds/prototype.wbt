@@ -20,9 +20,9 @@ RectangleArena {
 }
 Nao {
   hidden rotation_22 0 1 0 0.9599999995366013
-  hidden rotation_25 0 0.9999999999999999 0 0.9600000000979658
-  hidden rotation_26 0 0.9999999999999999 0 0.9599999993058103
-  hidden rotation_27 0 1 0 0.9600000001753661
+  hidden rotation_25 0 1 0 0.9600000000979658
+  hidden rotation_26 0 1 0 0.9599999993058103
+  hidden rotation_27 0 0.9999999999999999 0 0.9600000001753661
   hidden rotation_28 0 1 0 0.9600000001079212
   hidden rotation_30 0 -1 0 0.9600000000470942
   hidden rotation_35 0 1 0 0.9600000008706702
@@ -31,7 +31,7 @@ Nao {
   hidden rotation_38 0 1 0 0.9600000008706481
   hidden rotation_39 0 1 0 0.9600000002005398
   hidden rotation_40 0 1 0 0.9599999999662804
-  hidden rotation_42 0 -1 0 0.9600000000443509
+  hidden rotation_42 0 -0.9999999999999999 0 0.9600000000443509
   degreeOfFreedom 21
   controller "my_controller"
   rightHandSlot [

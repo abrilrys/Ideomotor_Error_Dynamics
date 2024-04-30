@@ -7,6 +7,125 @@ import csv
 import pickle
 import minisom
 from minisom import MiniSom
+import array
+
+
+class HebbianTable:
+    def __init__(self):
+        self.som1 = None
+        self.som2 = None
+        self.som_size1 = 0
+        self.som_size2 = 0
+        self.eta = 0.0
+        self.neighbors_size = 0
+        self.hasTam = 0
+        self.axons = []
+        self.status = []
+
+    def init(self, s1, s2, learning_factor):
+        self.eta = learning_factor
+        self.som1 = s1
+        self.som2 = s2
+        #sn.get_weights().shape[0]*sn.get_weights().shape[1] = total number of neurons in the som
+        self.som_size1 = s1.get_weights().shape[0]*s1.get_weights().shape[1]
+        self.som_size2 = s2.get_weights().shape[0]*s2.get_weights().shape[1]
+       
+        self.hasTam = 50000
+        self.crea_Hash(self.hasTam)
+
+    def loadFromFile(self, filename):
+        print(f"Loading hebbian table from {filename}")
+        with open(filename, "r") as inputfile:
+            lines = inputfile.readlines()
+            self.axons = np.zeros(self.hasTam)
+            self.status = np.zeros((self.hasTam, 2), dtype=int)
+            for i, line in enumerate(lines):
+                parts = line.split()
+                self.status[i][0] = int(parts[0])
+                self.status[i][1] = int(parts[1])
+                self.axons[i] = float(parts[2])
+        print("Hebbian table loaded.")
+
+    def learnUsingWinners(self, logfile, input_som1, input_som2):
+        distance1, distance2 = 0.0, 0.0
+        som1_winner = self.som1.winner(input_som1)
+        som2_winner = self.som2.winner(input_som2)
+        logfile.write("{som1_winner} {som2_winner} ")
+        distance1 = 1.0 - self.som1._euclidean_distance(input_som1, som1_winner)
+        distance2 = 1.0 - self.som2._euclidean_distance(input_som2, som2_winner)
+        position = som1_winner * self.som_size2 + som2_winner
+        peso = self.eta * distance1 * distance2
+        indice = self.busca_Hash(self.hasTam, position, 0)
+        if indice == -1:
+            self.insrew_Hash(self.hasTam, position, peso)
+        else:
+            self.insrew_Hash(self.hasTam, position, peso + self.axons[indice])
+
+    def funcion(self, k, m, i):
+        return ((k + i) % m)
+
+    def crea_Hash(self, m):
+        self.axons = np.zeros(m)
+        self.status = np.zeros((m, 2), dtype=int)
+
+    def busca_Hash(self, m, k, i):
+        j = 0
+        if i < m:
+            j = self.funcion(k, m, i)
+            if self.status[j][1] == 0:
+                return -1
+            elif self.status[j][1] == 1:
+                return self.busca_Hash(m, k, i + 1)
+            elif self.status[j][0] == k:
+                return j
+            else:
+                return self.busca_Hash(m, k, i + 1)
+        return -1
+
+    def insrew_Hash(self, m, k, peso):
+        i = 0
+        l = self.busca_Hash(m, k, 0)
+        if l == -1:
+            while i < m:
+                j = self.funcion(k, m, i)
+                if self.status[j][1] == 0 or self.status[j][1] == 1:
+                    self.status[j][0] = k
+                    self.status[j][1] = 2
+                    self.axons[j] = peso
+                    return
+                else:
+                    i += 1
+            print("\nTabla hash llena!\n")
+        else:
+            self.axons[l] = peso
+
+    def axonsbypos(self, som1indice, som2indice):
+        position = som1indice * self.som_size2 + som2indice
+        indice = self.busca_Hash(self.hasTam, position, 0)
+        if indice == -1:
+            return 0.0
+        else:
+            return self.axons[indice]
+
+    def getConectionsFromSOM2(self, winner_som2, som1_unit):
+        indice1 = som1_unit * self.som_size2
+        for x in range(self.som_size2):
+            exist = self.busca_Hash(self.hasTam, indice1 + x, 0)
+            if exist != -1:
+                winner_som2.append(x)
+
+    def getConectionsFromSOM1(self, winner_som1, som2_unit):
+        for x in range(self.som_size1):
+            exist = self.busca_Hash(self.hasTam, (x * self.som_size2) + som2_unit, 0)
+            if exist != -1:
+                winner_som1.append(x)
+
+    def saveTable(self, filename):
+        print("Saving hebbian table to {filename}")
+        with open(filename, "w") as myfile:
+            for x1 in range(self.hasTam):
+                myfile.write(f"{self.status[x1][0]} {self.status[x1][1]} {self.axons[x1]}\n")
+
 
 class Nao (Robot):
     PHALANX_MAX = 8
@@ -173,6 +292,7 @@ class Nao (Robot):
 
 somAngles = None
 somVisual = None
+somCombined = None
 
 def generateAnglesSOM():
     
@@ -190,8 +310,11 @@ def generateAnglesSOM():
     
     # Data normalization
     data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
+    #print(type(data))
+    
     data = data.values
-
+    #print(data)
+    #print(type(data))
     # Initialization and training
     n_neurons = 5
     m_neurons = 5
@@ -227,6 +350,55 @@ def generateVisualSOM():
     
     somVisual.pca_weights_init(data)
     somVisual.train(data, 1000, verbose=True)  # random training
+    
+def generateSOIMA():
+    
+    global somCombined
+    
+    motor_data = []
+    gps_data = []
+    
+    # Leer los angulos de los motores del CSV
+    with open("motor_angles.csv", "r", newline='') as motor_csvfile:
+        motor_reader = csv.reader(motor_csvfile)
+        next(motor_reader)  # Pasar el encabezado
+        for row in motor_reader:
+            motor_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
+    
+    # Leer los datos del GPS del CSV
+    with open("gps_hand.csv", "r", newline='') as gps_csvfile:
+        gps_reader = csv.reader(gps_csvfile)
+        next(gps_reader)  # Pasar el encabezado
+        for row in gps_reader:
+            gps_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
+    
+    #print(somVisual.winner(random.choice(gps_data)));
+    
+    # Obtener todas las coordinadas del som visual
+    visual_coordinates = [somVisual.winner(entry) for entry in gps_data]
+    # Obtener todas las coordinadas del som motor
+    motor_coordinates = [somAngles.winner(entry) for entry in motor_data]
+    
+    # Crear un nuevo conjunto de datos que consiste en todas las combinaciones de las coordenadas
+    combined_dataset = []
+    
+    for visual_coord, motor_coord in zip(visual_coordinates, motor_coordinates):
+        combined_entry = visual_coord + motor_coord  # Concatenate the two coordinate vectors
+        combined_dataset.append(combined_entry)
+    
+    combined_dataset= pd.DataFrame(combined_dataset)
+    combined_dataset=combined_dataset.values
+    
+    #Initialization and training
+    n_neurons_combined = 5
+    m_neurons_combined = 5
+    
+    
+    somCombined = MiniSom(n_neurons_combined, m_neurons_combined, combined_dataset.shape[1], sigma=1.5, learning_rate=.5, 
+                      neighborhood_function='gaussian', random_seed=0, topology='rectangular')
+        
+    somCombined.pca_weights_init(combined_dataset)
+    somCombined.train(combined_dataset, 1000, verbose=True)  # random training
 
 # create the Robot instance and run main loop
 robot = Nao()
@@ -234,46 +406,42 @@ robot = Nao()
 
 generateAnglesSOM()
 generateVisualSOM()
+generateSOIMA()
+
+# Crear una instancia de HebbianTable
+hebbian_table = HebbianTable()
+# Inicializar la tabla Hebbiana con las SOMs y un factor de aprendizaje
+hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
 motor_data = []
 gps_data = []
-
+    
 # Leer los angulos de los motores del CSV
 with open("motor_angles.csv", "r", newline='') as motor_csvfile:
     motor_reader = csv.reader(motor_csvfile)
     next(motor_reader)  # Pasar el encabezado
     for row in motor_reader:
         motor_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
-
+    
 # Leer los datos del GPS del CSV
 with open("gps_hand.csv", "r", newline='') as gps_csvfile:
     gps_reader = csv.reader(gps_csvfile)
     next(gps_reader)  # Pasar el encabezado
     for row in gps_reader:
         gps_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
+            
+# Ejecutar el aprendizaje utilizando los ganadores de las SOMs
+logfile_path = "hebbian.txt"
+with open(logfile_path, "w") as logfile:
+    for gps_entry, motor_entry in zip(gps_data, motor_data):
+        # Llamar a los métodos de la clase HebbianTable y pasar el archivo de registro como argumento
+        hebbian_table.learnUsingWinners(logfile, gps_entry, motor_entry)
 
-#print(somVisual.winner(random.choice(gps_data)));
+# Obtener los pesos de la tabla Hebbiana para una posición específica
+#pesos = hebbian_table.axonsbypos(som1indice, som2indice)
 
-# Obtener todas las coordinadas del som visual
-visual_coordinates = [somVisual.winner(entry) for entry in gps_data]
+# Guardar la tabla Hebbiana en un archivo
+#hebbian_table.saveTable("hebbian_table_new.txt")
 
-# Obtener todas las coordinadas del som motor
-motor_coordinates = [somAngles.winner(entry) for entry in motor_data]
 
-# Crear un nuevo conjunto de datos que consiste en todas las combinaciones de las coordenadas
-combined_dataset = [(visual_coord, motor_coord) for visual_coord, motor_coord in zip(visual_coordinates, motor_coordinates)]
-combined_dataset = np.array(combined_dataset)
-print(combined_dataset.shape[1])
-
-# Initialization and training
-n_neurons_combined = 5
-m_neurons_combined = 5
-    
-somCombined = MiniSom(n_neurons_combined, m_neurons_combined, combined_dataset.shape[1], sigma=1.5, learning_rate=.5, 
-                  neighborhood_function='gaussian', random_seed=0, topology='rectangular')
-    
-somCombined.pca_weights_init(combined_dataset)
-somCombined.train(combined_dataset, 1000, verbose=True)  # random training
-
-print(somCombined.winner(random.choice(combined_dataset)));
 
