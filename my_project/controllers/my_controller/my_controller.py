@@ -29,7 +29,6 @@ class HebbianTable:
         #sn.get_weights().shape[0]*sn.get_weights().shape[1] = total number of neurons in the som
         self.som_size1 = s1.get_weights().shape[0]*s1.get_weights().shape[1]
         self.som_size2 = s2.get_weights().shape[0]*s2.get_weights().shape[1]
-       
         self.hasTam = 50000
         self.crea_Hash(self.hasTam)
 
@@ -45,17 +44,42 @@ class HebbianTable:
                 self.status[i][1] = int(parts[1])
                 self.axons[i] = float(parts[2])
         print("Hebbian table loaded.")
-
+    
+    def cantor_pairing(self, x, y):
+        return ((x + y) * (x + y + 1))/2 + y
+    
     def learnUsingWinners(self, logfile, input_som1, input_som2):
         distance1, distance2 = 0.0, 0.0
+        
+        #get the map weight of each som
+        weights_som1 = self.som1.get_weights()
+        weights_som2 = self.som2.get_weights()
+        
+        #get the coordinate of the winner neuron
         som1_winner = self.som1.winner(input_som1)
         som2_winner = self.som2.winner(input_som2)
+        
+        #get the weight of the winner neuron
+        weight_winner_som1=weights_som1[som1_winner[0], som1_winner[1]]
+        weight_winner_som2=weights_som2[som2_winner[0], som2_winner[1]]
+        
         logfile.write("{som1_winner} {som2_winner} ")
-        distance1 = 1.0 - self.som1._euclidean_distance(input_som1, som1_winner)
-        distance2 = 1.0 - self.som2._euclidean_distance(input_som2, som2_winner)
-        position = som1_winner * self.som_size2 + som2_winner
+        
+        #get the euclidean distance from the input vector to the winner neuron
+        distance1 = self.som1._euclidean_distance(input_som1,weight_winner_som1) #1-
+        distance2 = self.som2._euclidean_distance(input_som2, weight_winner_som2) #1-
+        
+        #get the unique index of the neuron
+        u_index_neuron_som1 = int(self.cantor_pairing(som1_winner[0], som1_winner[1]))
+        u_index_neuron_som2 = int(self.cantor_pairing(som2_winner[0], som2_winner[1]))
+       
+        #set a unique index to save the weigth to the table
+        position = (u_index_neuron_som1 * self.som_size2) + u_index_neuron_som2
+                
         peso = self.eta * distance1 * distance2
+        
         indice = self.busca_Hash(self.hasTam, position, 0)
+        
         if indice == -1:
             self.insrew_Hash(self.hasTam, position, peso)
         else:
@@ -195,10 +219,6 @@ class Nao (Robot):
                 line = line + str(int(gray))
             print(line)
 
-    def printGps(self):
-        p = self.gps.getValues()
-        print('----------gps----------')
-        print('position: [ x y z ] = [%f %f %f]' % (p[0], p[1], p[2]))
         
     def findAndEnableDevices(self):
         # get the time step of the current world.
@@ -212,7 +232,7 @@ class Nao (Robot):
 
         # gps
         self.gps = self.getDevice('hand_gps')
-        self.gps.enable(4)
+        self.gps.enable(1)
         #self.printGps()
 
 
@@ -230,10 +250,10 @@ class Nao (Robot):
         self.minRElbowYawPosition=self.RElbowYaw.getMinPosition();
         self.maxRElbowRollPosition=self.RElbowRoll.getMaxPosition();
         self.minRElbowRollPosition=self.RElbowRoll.getMinPosition();
-        print("Shoulder Pitch max:", self.maxRShoulderPitchPosition, "min :", self.minRShoulderPitchPosition);
-        print("Shoulder Roll max:", self.maxRShoulderRollPosition, "min :", self.minRShoulderRollPosition);
-        print("Elbow Yaw Pitch max:", self.maxRElbowYawPosition, "min :", self.minRElbowYawPosition);
-        print("Elbow Roll max:", self.maxRElbowRollPosition, "min :", self.minRElbowRollPosition);
+        #print("Shoulder Pitch max:", self.maxRShoulderPitchPosition, "min :", self.minRShoulderPitchPosition);
+        #print("Shoulder Roll max:", self.maxRShoulderRollPosition, "min :", self.minRShoulderRollPosition);
+        #print("Elbow Yaw Pitch max:", self.maxRElbowYawPosition, "min :", self.minRElbowYawPosition);
+        #print("Elbow Roll max:", self.maxRElbowRollPosition, "min :", self.minRElbowRollPosition);
         
         self.LShoulderPitch = self.getDevice("LShoulderPitch")
 
@@ -247,6 +267,45 @@ class Nao (Robot):
         # initialize stuff
         self.findAndEnableDevices()
         
+    def hebbianTrain(self):
+        random.seed(10)
+            
+        i = 0  # Initialize iteration counter
+        max_iterations = 100
+    
+        #loop_delay = 0.5  # Adjust the delay as needed
+        while robot.step(self.timeStep) != -1:
+            # Generate random angles within the specified range
+            randomShoulderPitch =  round(random.uniform(self.minRShoulderPitchPosition,self.maxRShoulderPitchPosition),4)
+            randomShoulderRoll = round(random.uniform(self.minRShoulderRollPosition, self.maxRShoulderRollPosition),4)
+            randomElbowYaw = round(random.uniform(self.minRElbowYawPosition, self.maxRElbowYawPosition),4)
+            randomElbowRoll = round(random.uniform(self.minRElbowRollPosition, self.maxRElbowRollPosition),4)
+            
+            # Set the random angles using the function
+            self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
+            
+            motor_entry = [randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
+            # Get GPS data
+            gps_entry = self.gps.getValues()
+            
+            #normalize
+            motor_entry= min_max_normalize(motor_entry)
+            gps_entry= min_max_normalize(gps_entry)
+            
+            #print(self.gps.getSamplingPeriod())
+            #print('----------gps----------')
+            #print('position: [ x y z ] = [%f %f %f]' % (gps_data[0], gps_data[1], gps_data[2]))
+            time.sleep(1)
+            #call hebbian table
+            logfile_path = "hebbian.txt"
+            with open(logfile_path, "w") as logfile:
+                # Llamar a los métodos de la clase HebbianTable y pasar el archivo de registro como argumento
+                hebbian_table.learnUsingWinners(logfile, gps_entry, motor_entry)
+            i += 1
+            
+            if i>=max_iterations:
+                break
+    
     def run(self):
         
         
@@ -287,13 +346,19 @@ class Nao (Robot):
                 
                 if i>=max_iterations:
                     break
-                
+               
 
 
 somAngles = None
 somVisual = None
 somCombined = None
 
+def min_max_normalize(x):
+    min_val = np.min(x, axis=0)
+    max_val = np.max(x, axis=0)
+    normalized_x = (x - min_val) / (max_val - min_val)
+    return normalized_x
+    
 def generateAnglesSOM():
     
     global somAngles
@@ -309,15 +374,16 @@ def generateAnglesSOM():
     data = data[data.columns[1:]]
     
     # Data normalization
-    data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
+    data = min_max_normalize(data)
     #print(type(data))
+   
     
     data = data.values
     #print(data)
     #print(type(data))
     # Initialization and training
-    n_neurons = 5
-    m_neurons = 5
+    n_neurons = 7 #5*sqrt(N) where N is the number of samples in the dataset
+    m_neurons = 7
 
     somAngles = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=1.5, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
 
@@ -338,18 +404,21 @@ def generateVisualSOM():
     # Remove first column 
     data = data[data.columns[1:]]
     # Data normalization
-    data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
+    data = min_max_normalize(data)
+    #(data - np.mean(data, axis=0)) / np.std(data, axis=0)
     data = data.values
     
+    
     # Initialization and training
-    n_neurons = 5
-    m_neurons = 5
+    n_neurons = 7
+    m_neurons = 7
     
     somVisual = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=1.5, learning_rate=.5, 
                   neighborhood_function='gaussian', random_seed=0, topology='rectangular')
     
     somVisual.pca_weights_init(data)
     somVisual.train(data, 1000, verbose=True)  # random training
+    
     
 def generateSOIMA():
     
@@ -361,23 +430,28 @@ def generateSOIMA():
     # Leer los angulos de los motores del CSV
     with open("motor_angles.csv", "r", newline='') as motor_csvfile:
         motor_reader = csv.reader(motor_csvfile)
-        next(motor_reader)  # Pasar el encabezado
+       
         for row in motor_reader:
             motor_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
     
     # Leer los datos del GPS del CSV
     with open("gps_hand.csv", "r", newline='') as gps_csvfile:
         gps_reader = csv.reader(gps_csvfile)
-        next(gps_reader)  # Pasar el encabezado
+       
         for row in gps_reader:
             gps_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
     
     #print(somVisual.winner(random.choice(gps_data)));
     
+    #normalize
+    motor_data= min_max_normalize(motor_data)
+    gps_data= min_max_normalize(gps_data)
+    
     # Obtener todas las coordinadas del som visual
     visual_coordinates = [somVisual.winner(entry) for entry in gps_data]
     # Obtener todas las coordinadas del som motor
     motor_coordinates = [somAngles.winner(entry) for entry in motor_data]
+    
     
     # Crear un nuevo conjunto de datos que consiste en todas las combinaciones de las coordenadas
     combined_dataset = []
@@ -389,9 +463,12 @@ def generateSOIMA():
     combined_dataset= pd.DataFrame(combined_dataset)
     combined_dataset=combined_dataset.values
     
+    #print(combined_dataset.size)
+    #print(combined_dataset)
+    
     #Initialization and training
-    n_neurons_combined = 5
-    m_neurons_combined = 5
+    n_neurons_combined = 10
+    m_neurons_combined = 10
     
     
     somCombined = MiniSom(n_neurons_combined, m_neurons_combined, combined_dataset.shape[1], sigma=1.5, learning_rate=.5, 
@@ -413,35 +490,19 @@ hebbian_table = HebbianTable()
 # Inicializar la tabla Hebbiana con las SOMs y un factor de aprendizaje
 hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
-motor_data = []
-gps_data = []
-    
-# Leer los angulos de los motores del CSV
-with open("motor_angles.csv", "r", newline='') as motor_csvfile:
-    motor_reader = csv.reader(motor_csvfile)
-    next(motor_reader)  # Pasar el encabezado
-    for row in motor_reader:
-        motor_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
-    
-# Leer los datos del GPS del CSV
-with open("gps_hand.csv", "r", newline='') as gps_csvfile:
-    gps_reader = csv.reader(gps_csvfile)
-    next(gps_reader)  # Pasar el encabezado
-    for row in gps_reader:
-        gps_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
-            
+robot.hebbianTrain()
 # Ejecutar el aprendizaje utilizando los ganadores de las SOMs
-logfile_path = "hebbian.txt"
-with open(logfile_path, "w") as logfile:
-    for gps_entry, motor_entry in zip(gps_data, motor_data):
+#logfile_path = "hebbian.txt"
+#with open(logfile_path, "w") as logfile:
+    #for gps_entry, motor_entry in zip(gps_data, motor_data):
         # Llamar a los métodos de la clase HebbianTable y pasar el archivo de registro como argumento
-        hebbian_table.learnUsingWinners(logfile, gps_entry, motor_entry)
+        #hebbian_table.learnUsingWinners(logfile, gps_entry, motor_entry)
 
 # Obtener los pesos de la tabla Hebbiana para una posición específica
 #pesos = hebbian_table.axonsbypos(som1indice, som2indice)
-
+#print(pesos)
 # Guardar la tabla Hebbiana en un archivo
-#hebbian_table.saveTable("hebbian_table_new.txt")
+hebbian_table.saveTable("hebbian_table_new.txt")
 
 
 
