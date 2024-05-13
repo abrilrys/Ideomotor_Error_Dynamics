@@ -162,8 +162,8 @@ class HebbianTable:
             u_indices.append(u_index)
         
         connected_neurons = []
-        max_activation = -1  # Initialize maximum activation to a negative value
-        max_activation_neuron = None
+        min_activation = float('inf')  # Initialize minimum activation to a large value
+        min_activation_neuron = None
         
         for som2_unit in u_indices:
             # Calcular el índice correspondiente en la tabla Hebbiana
@@ -172,13 +172,56 @@ class HebbianTable:
             indice = self.busca_Hash(self.hasTam, position, 0)
             #print(indice)
             # Si hay una conexión, agregar la neurona som2 a la lista de conexiones
-            if indice != -1 and self.axons[indice] > max_activation:
+            if indice != -1 and self.axons[indice] < min_activation:
                 connected_neurons.append(som2_unit)
-                max_activation = self.axons[indice]
-                max_activation_neuron = som2_unit
+                min_activation = self.axons[indice]
+                min_activation_neuron = som2_unit
         
-        if max_activation_neuron != None:
-            return self.decantor_pairing(max_activation_neuron)
+        if min_activation_neuron != None:
+            return self.decantor_pairing(min_activation_neuron)
+        else:
+            return None
+            
+    def getConectionsFromSOM2(self, som2_vector):
+        
+        
+        #get winner neuron
+        som2_winner = self.som2.winner(som2_vector)
+        print("BMU SOM 2: ", som2_winner)
+        
+        #get the coordinates from som1
+        coordinates = []
+        
+        for row in range(self.som1.get_weights().shape[0]):
+            for col in range(self.som1.get_weights().shape[1]):
+                coordinates.append((row, col))
+        
+        #get the unique index of the neuron
+        u_index_neuron_som2 = int(self.cantor_pairing(som2_winner[0], som2_winner[1]))
+        
+        u_indices = []
+        for coord in coordinates:
+            u_index = int(self.cantor_pairing(coord[0], coord[1]))
+            u_indices.append(u_index)
+        
+        connected_neurons = []
+        min_activation = float('inf')  # Initialize minimum activation to a large value
+        min_activation_neuron = None
+        
+        for som1_unit in u_indices:
+            # Calcular el índice correspondiente en la tabla Hebbiana
+            position = som1_unit * self.som_size2 + u_index_neuron_som2
+            # Buscar en la tabla Hebbiana
+            indice = self.busca_Hash(self.hasTam, position, 0)
+            #print(indice)
+            # Si hay una conexión, agregar la neurona som2 a la lista de conexiones
+            if indice != -1 and self.axons[indice] < min_activation:
+                connected_neurons.append(som1_unit)
+                min_activation = self.axons[indice]
+                min_activation_neuron = som1_unit
+        
+        if min_activation_neuron != None:
+            return self.decantor_pairing(min_activation_neuron)
         else:
             return None
             
@@ -306,8 +349,11 @@ class Nao (Robot):
 
         # initialize stuff
         self.findAndEnableDevices()
-        
-    def hebbianTest(self):
+    
+    #función en donde se puede testear las conexiones del som 1 al som2 y viceversa    
+    def hebbianTest(self, choice):
+        #choice =1 if you want to test from som 1 to som 2
+        #choice =2 if you want to test from som 2 to som 1
         random.seed(10)
         
         while robot.step(self.timeStep) != -1:
@@ -330,9 +376,12 @@ class Nao (Robot):
             #print(gps_entry)
             
             time.sleep(1)
-            print("BMU SOM 2: ", hebbian_table.getConectionsFromSOM1(gps_entry))
+            if choice == 1 :
+                print("BMU SOM 2: ", hebbian_table.getConectionsFromSOM1(gps_entry))
             
-           
+            else:
+                print("BMU SOM 1: ", hebbian_table.getConectionsFromSOM2(motor_entry))
+        
         
     def hebbianTrain(self):
         random.seed(10)
@@ -612,15 +661,15 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
 ####
 
 #train
-generateAnglesSOM()
-generateVisualSOM()
-generateSOIMA()
+#generateAnglesSOM()
+#generateVisualSOM()
+#generateSOIMA()
 
-hebbian_table = HebbianTable()
-hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
+#hebbian_table = HebbianTable()
+#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
-robot.hebbianTrain()
-hebbian_table.saveTable("hebbian_table_new.txt")
+#robot.hebbianTrain()
+#hebbian_table.saveTable("hebbian_table_new.txt")
 
 
 #load            
@@ -641,5 +690,6 @@ hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
 
 hebbian_table.loadFromFile("hebbian_table_new.txt")
-robot.hebbianTest()
+
+robot.hebbianTest(1)
 
