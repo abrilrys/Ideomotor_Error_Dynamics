@@ -56,7 +56,7 @@ class HebbianTable:
         x = int(w - y)
         return (x, y)
     
-    def learnUsingWinners(self, logfile, input_som1, input_som2):
+    def learnUsingWinners(self, input_som1, input_som2):
         distance1, distance2 = 0.0, 0.0
         
         #get the map weight of each som
@@ -70,8 +70,7 @@ class HebbianTable:
         #get the weight of the winner neuron
         weight_winner_som1=weights_som1[som1_winner[0], som1_winner[1]]
         weight_winner_som2=weights_som2[som2_winner[0], som2_winner[1]]
-        
-        logfile.write("{som1_winner} {som2_winner} ")
+       
         
         #get the euclidean distance from the input vector to the winner neuron
         distance1 = self.som1._euclidean_distance(input_som1,weight_winner_som1) #1-
@@ -412,11 +411,8 @@ class Nao (Robot):
             #print('----------gps----------')
             #print('position: [ x y z ] = [%f %f %f]' % (gps_data[0], gps_data[1], gps_data[2]))
             time.sleep(1)
-            #call hebbian table
-            logfile_path = "hebbian.txt"
-            with open(logfile_path, "w") as logfile:
-                # Llamar a los métodos de la clase HebbianTable y pasar el archivo de registro como argumento
-                hebbian_table.learnUsingWinners(logfile, gps_entry, motor_entry)
+            hebbian_table.learnUsingWinners(gps_entry, motor_entry)
+            
             i += 1
             
             if i>=max_iterations:
@@ -660,19 +656,14 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
             
 ####
 
-#train
+
+    
+#####train SOMS
 #generateAnglesSOM()
 #generateVisualSOM()
 #generateSOIMA()
 
-#hebbian_table = HebbianTable()
-#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
-
-#robot.hebbianTrain()
-#hebbian_table.saveTable("hebbian_table_new.txt")
-
-
-#load            
+#####load SOMS           
 with open('somVisual.p', 'rb') as infile:
     somVisual = pickle.load(infile)
 
@@ -682,14 +673,89 @@ with open('somAngles.p', 'rb') as infile:
 with open('soima.p', 'rb') as infile:
     somCombined = pickle.load(infile)
     
+#####train hebbian table
+#hebbian_table = HebbianTable()
+#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
+
+#robot.hebbianTrain()
+#hebbian_table.saveTable("hebbian_table_new.txt")
+
+
+
+#####load hebbian table
+    
 # Crear una instancia de HebbianTable
 hebbian_table = HebbianTable()
 # Inicializar la tabla Hebbiana con las SOMs y un factor de aprendizaje
 hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
-
-
 hebbian_table.loadFromFile("hebbian_table_new.txt")
 
-robot.hebbianTest(1)
+#robot.hebbianTest(1)
 
+
+def interpolar_coordenadas_prediccion(coord1, coord2, num_intermedios):
+    coordenadas_intermedias = []
+    for i in range(1, num_intermedios):
+        x_inter = coord1[0] + (coord2[0] - coord1[0]) * i / 11
+        y_inter = coord1[1] + (coord2[1] - coord1[1]) * i / 11
+        z_inter = coord1[2] + (coord2[2] - coord1[2]) * i / 11
+        coordenadas_intermedias.append((x_inter, y_inter, z_inter))
+    return coordenadas_intermedias
+
+
+
+# Define the dimensions of the SOM
+som_height = somCombined.get_weights().shape[0]  # Number of rows
+som_width = somCombined.get_weights().shape[1]   # Number of columns
+
+# Generate all possible coordinates
+all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
+
+# Shuffle the list of coordinates
+random.shuffle(all_coordinates)
+
+# Select 10 unique pairs of coordinates without repetition
+selected_pairs = []
+selected_pairs_count = 0
+
+while selected_pairs_count < 10:
+    # Select two random coordinates
+    coord1 = random.choice(all_coordinates)
+    coord2 = random.choice(all_coordinates)
+    
+    # Ensure the pair is unique and not repeated
+    if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
+        selected_pairs.append((coord1, coord2))
+        selected_pairs_count += 1
+
+# Create a dictionary to store the data
+data_dict = {}
+
+# Populate the dictionary with selected pairs, associated sets, and buffers
+for pair in selected_pairs:
+    sets_and_buffers = {}
+    for i in range(4):
+        set_pairs = set()
+        # Add three random coordinates not equal to the pair coordinates
+        while len(set_pairs) < 3:
+            random_coord = random.choice(all_coordinates)
+            if random_coord != pair[0] and random_coord != pair[1]:
+                set_pairs.add(random_coord)
+        # Initialize buffer with zeros and size 4
+        buffer = [0] * 4
+        sets_and_buffers[tuple(set_pairs)] = buffer
+    # Initialize another error buffer with zeros and size 10
+    error_buffer = [0] * 10
+    data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers, "Error_Buffer": error_buffer}
+
+# Print the structured data
+for pair, values in data_dict.items():
+    print("Pair:", pair)
+    print("Associated Sets and Buffers:")
+    for set_pairs, buffer in values["Sets_and_Buffers"].items():
+        print("Set:", set_pairs)
+        print("Associated Buffer:", buffer)
+        print()
+    print("Associated Error Buffer (Size 10):", values["Error_Buffer"])
+    print()

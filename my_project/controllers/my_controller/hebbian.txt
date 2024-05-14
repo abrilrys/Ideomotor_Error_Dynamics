@@ -1,1 +1,0 @@
-{som1_winner} {som2_winner} 
