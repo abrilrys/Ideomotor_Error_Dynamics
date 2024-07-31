@@ -317,7 +317,7 @@ class Nao (Robot):
         # gps
         self.gps = self.getDevice('hand_gps')
         self.gps.enable(1)
-        self.printGps()
+        #self.printGps()
 
 
         # right arm motors
@@ -409,9 +409,6 @@ class Nao (Robot):
             motor_entry= min_max_normalize_with_data(motor_entry, motor_data)
             gps_entry= min_max_normalize_with_data(gps_entry, gps_data)
             
-            #print(self.gps.getSamplingPeriod())
-            #print('----------gps----------')
-            #print('position: [ x y z ] = [%f %f %f]' % (gps_data[0], gps_data[1], gps_data[2]))
             time.sleep(1)
             hebbian_table.learnUsingWinners(gps_entry, motor_entry)
             
@@ -421,6 +418,7 @@ class Nao (Robot):
                 break
     
     def run(self):
+        
         
         with open("motor_angles.csv", "w",newline='') as  motor_csvfile, \
              open("gps_hand.csv", "w", newline='') as gps_csvfile:
@@ -432,58 +430,32 @@ class Nao (Robot):
             random.seed(10)
             
             i = 0  # Initialize iteration counter
-            max_iterations = 5000
-            
-            # Mean and standard deviation for the normal distribution
-            mu_ShoulderPitch = (self.minRShoulderPitchPosition + self.maxRShoulderPitchPosition) / 2
-            sigma_ShoulderPitch = (self.maxRShoulderPitchPosition - self.minRShoulderPitchPosition) / 6  # Example std dev
-        
-            mu_ShoulderRoll = (self.minRShoulderRollPosition + self.maxRShoulderRollPosition) / 2
-            sigma_ShoulderRoll = (self.maxRShoulderRollPosition - self.minRShoulderRollPosition) / 6  # Example std dev
-        
-            mu_ElbowYaw = (self.minRElbowYawPosition + self.maxRElbowYawPosition) / 2
-            sigma_ElbowYaw = (self.maxRElbowYawPosition - self.minRElbowYawPosition) / 6  # Example std dev
-        
-            mu_ElbowRoll = (self.minRElbowRollPosition + self.maxRElbowRollPosition) / 2
-            sigma_ElbowRoll = (self.maxRElbowRollPosition - self.minRElbowRollPosition) / 6  # Example std dev
-            
-            
+            max_iterations = 100
+    
             #loop_delay = 0.5  # Adjust the delay as needed
             while robot.step(self.timeStep) != -1:
-                try:
-                    # Generate random angles within the specified range
-                    randomShoulderPitch = round(random.gauss(mu_ShoulderPitch, sigma_ShoulderPitch), 4)
-                    randomShoulderRoll = round(random.gauss(mu_ShoulderRoll, sigma_ShoulderRoll), 4)
-                    randomElbowYaw = round(random.gauss(mu_ElbowYaw, sigma_ElbowYaw), 4)
-                    randomElbowRoll = round(random.gauss(mu_ElbowRoll, sigma_ElbowRoll), 4)
-                    
-                    # Ensure the angles are within the specified range
-                    randomShoulderPitch = max(min(randomShoulderPitch, self.maxRShoulderPitchPosition), self.minRShoulderPitchPosition)
-                    randomShoulderRoll = max(min(randomShoulderRoll, self.maxRShoulderRollPosition), self.minRShoulderRollPosition)
-                    randomElbowYaw = max(min(randomElbowYaw, self.maxRElbowYawPosition), self.minRElbowYawPosition)
-                    randomElbowRoll = max(min(randomElbowRoll, self.maxRElbowRollPosition), self.minRElbowRollPosition)
-                    
-                    # Set the random angles using the function
-                    self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
-                       
-                    # Get GPS data
-                    gps_data = self.gps.getValues()
-                    #print(self.gps.getSamplingPeriod())
-                    print('----------gps----------')
-                    print('position: [ x y z ] = [%f %f %f]' % (gps_data[0], gps_data[1], gps_data[2]))
-                    
-                    time.sleep(0.002)
-                    print("Waiting for 0.002s \t")
-                    motor_writer.writerow([i, randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll])
-                    gps_writer.writerow([i,gps_data[0], gps_data[1], gps_data[2]])
-                    
-                    print(i)
-                    i += 1
-                    
-                    if i>=max_iterations:
-                        break
-                except Exception as e:
-                    print(f"Error at iteration {i}: {e}")
+            
+                # Generate random angles within the specified range
+                randomShoulderPitch =  round(random.uniform(self.minRShoulderPitchPosition,self.maxRShoulderPitchPosition),4)
+                randomShoulderRoll = round(random.uniform(self.minRShoulderRollPosition, self.maxRShoulderRollPosition),4)
+                randomElbowYaw = round(random.uniform(self.minRElbowYawPosition, self.maxRElbowYawPosition),4)
+                randomElbowRoll = round(random.uniform(self.minRElbowRollPosition, self.maxRElbowRollPosition),4)
+                
+                # Set the random angles using the function
+                self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
+                   
+                # Get GPS data
+                gps_data = self.gps.getValues()
+                #print(self.gps.getSamplingPeriod())
+                #print('----------gps----------')
+                #print('position: [ x y z ] = [%f %f %f]' % (gps_data[0], gps_data[1], gps_data[2]))
+                time.sleep(1)
+                motor_writer.writerow([i, randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll])
+                gps_writer.writerow([i,gps_data[0], gps_data[1], gps_data[2]])
+                
+                i += 1
+                
+                if i>=max_iterations:
                     break
                
 
@@ -552,23 +524,17 @@ def generateAnglesSOM():
     #print(data)
     #print(type(data))
     # Initialization and training
-    n_neurons = 25 #5*sqrt(N) where N is the number of samples in the dataset
-    m_neurons = 25
+    n_neurons = 8 #5*sqrt(N) where N is the number of samples in the dataset
+    m_neurons = 8
 
-    somAngles = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=3, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
+    somAngles = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=1.5, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
 
     somAngles.pca_weights_init(data)
-    somAngles.train(data, 100, verbose=True)  # random training
-    
-    print("SOM Sensorial done")
+    somAngles.train(data, 1000, verbose=True)  # random training
     
     # saving the som
     with open('somAngles.p', 'wb') as outfile:
         pickle.dump(somAngles, outfile)
-        
-         
-        
-       
     
     
     
@@ -591,14 +557,14 @@ def generateVisualSOM():
     
     
     # Initialization and training
-    n_neurons = 25
-    m_neurons = 25
+    n_neurons = 8
+    m_neurons = 8
     
-    somVisual = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=3, learning_rate=.5, 
+    somVisual = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=1.5, learning_rate=.5, 
                   neighborhood_function='gaussian', random_seed=0, topology='rectangular')
     
     somVisual.pca_weights_init(data)
-    somVisual.train(data, 100, verbose=True)  # random training
+    somVisual.train(data, 1000, verbose=True)  # random training
     
     # saving the som
     with open('somVisual.p', 'wb') as outfile:
@@ -645,18 +611,20 @@ def generateSOIMA():
         combined_entry = visual_coord + motor_coord  # Concatenate the two coordinate vectors
         combined_dataset.append(combined_entry)
     
+    #print(combined_dataset)
+    #print(len(combined_dataset))
+    
     combined_dataset= pd.DataFrame(combined_dataset)
     
     combined_dataset = min_max_normalize(combined_dataset)
     
     combined_dataset=combined_dataset.values
     
-    #print(combined_dataset.size)
     #print(combined_dataset)
     
     #Initialization and training
-    n_neurons_combined = 25
-    m_neurons_combined = 25
+    n_neurons_combined = 8
+    m_neurons_combined = 8
     
     
     somCombined = MiniSom(n_neurons_combined, m_neurons_combined, combined_dataset.shape[1], sigma=1.5, learning_rate=.5, 
@@ -672,7 +640,7 @@ def generateSOIMA():
 
 # create the Robot instance and run main loop
 robot = Nao()
-robot.run()
+#robot.run()
 
 ####train data
 motor_data = []
@@ -692,13 +660,13 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
         gps_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
             
 ####
-#print(motor_data)
+
 
     
 #####train SOMS
 generateAnglesSOM()
 generateVisualSOM()
-#generateSOIMA()
+generateSOIMA()
 
 #####load SOMS           
 with open('somVisual.p', 'rb') as infile:
@@ -709,90 +677,29 @@ with open('somAngles.p', 'rb') as infile:
 
 with open('soima.p', 'rb') as infile:
     somCombined = pickle.load(infile)
-    
-#####train hebbian table
-#hebbian_table = HebbianTable()
-#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
-#robot.hebbianTrain()
-#hebbian_table.saveTable("hebbian_table_new.txt")
+#####train hebbian table from som visual to MMR
+hebbian_table_visual = HebbianTable()
+hebbian_table_visual.init(somVisual, somCombined, learning_factor=0.1)
+
+robot.hebbianTrain()
+hebbian_table.saveTable("hebbian_table_visual.txt")
+
+#####train hebbian table from som visual to MMR
+hebbian_table_motor = HebbianTable()
+hebbian_table_motor.init(somAngles, somCombined, learning_factor=0.1)
+
+robot.hebbianTrain()
+hebbian_table.saveTable("hebbian_table_motor.txt")
 
 
-
-#####load hebbian table
+#####load hebbian tables
     
 # Crear una instancia de HebbianTable
-hebbian_table = HebbianTable()
+#hebbian_table = HebbianTable()
 # Inicializar la tabla Hebbiana con las SOMs y un factor de aprendizaje
-hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
+#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
-hebbian_table.loadFromFile("hebbian_table_new.txt")
+#hebbian_table.loadFromFile("hebbian_table_new.txt")
 
 #robot.hebbianTest(1)
-
-
-def interpolar_coordenadas_prediccion(coord1, coord2, num_intermedios):
-    coordenadas_intermedias = []
-    for i in range(1, num_intermedios):
-        x_inter = coord1[0] + (coord2[0] - coord1[0]) * i / 11
-        y_inter = coord1[1] + (coord2[1] - coord1[1]) * i / 11
-        z_inter = coord1[2] + (coord2[2] - coord1[2]) * i / 11
-        coordenadas_intermedias.append((x_inter, y_inter, z_inter))
-    return coordenadas_intermedias
-
-
-
-# Define the dimensions of the SOM
-#som_height = somCombined.get_weights().shape[0]  # Number of rows
-#som_width = somCombined.get_weights().shape[1]   # Number of columns
-
-# Generate all possible coordinates
-#all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
-
-# Shuffle the list of coordinates
-#random.shuffle(all_coordinates)
-
-# Select 10 unique pairs of coordinates without repetition
-#selected_pairs = []
-#selected_pairs_count = 0
-
-#while selected_pairs_count < 10:
-    # Select two random coordinates
-    #coord1 = random.choice(all_coordinates)
-    #coord2 = random.choice(all_coordinates)
-    
-    # Ensure the pair is unique and not repeated
-    #if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
-     #   selected_pairs.append((coord1, coord2))
-      #  selected_pairs_count += 1
-
-# Create a dictionary to store the data
-#data_dict = {}
-
-# Populate the dictionary with selected pairs, associated sets, and buffers
-#for pair in selected_pairs:
- #   sets_and_buffers = {}
-  #  for i in range(4):
-   #     set_pairs = set()
-        # Add three random coordinates not equal to the pair coordinates
-    #    while len(set_pairs) < 3:
-     #       random_coord = random.choice(all_coordinates)
-      #      if random_coord != pair[0] and random_coord != pair[1]:
-       #         set_pairs.add(random_coord)
-        # Initialize buffer with zeros and size 4
-        #buffer = [0] * 4
-        #sets_and_buffers[tuple(set_pairs)] = buffer
-    # Initialize another error buffer with zeros and size 10
-    #error_buffer = [0] * 10
-    #data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers, "Error_Buffer": error_buffer}
-
-# Print the structured data
-#for pair, values in data_dict.items():
-    #print("Pair:", pair)
-    #print("Associated Sets and Buffers:")
-    #for set_pairs, buffer in values["Sets_and_Buffers"].items():
-     #   print("Set:", set_pairs)
-     #   print("Associated Buffer:", buffer)
-     #   print()
-    #print("Associated Error Buffer (Size 10):", values["Error_Buffer"])
-    #print()
