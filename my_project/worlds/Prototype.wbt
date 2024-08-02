@@ -20,6 +20,11 @@ RectangleArena {
 Nao {
   degreeOfFreedom 21
   controller "my_controller"
+  bodySlot [
+    GPS {
+      name "gps_body"
+    }
+  ]
   rightHandSlot [
     GPS {
       name "hand_gps"

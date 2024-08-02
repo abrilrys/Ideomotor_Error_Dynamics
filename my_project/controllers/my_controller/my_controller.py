@@ -302,7 +302,18 @@ class Nao (Robot):
                 gray = camera.imageGetGray(image, width, x * scaled, y * scaled) * 9 / 255  # rescale between 0 and 9
                 line = line + str(int(gray))
             print(line)
-
+    
+    def getRelativeCoords(self):
+        # Leer la posición global del GPS de la mano
+        gps_hand_coords = self.gps.getValues()
+        
+        # Leer la posición del cuerpo del NAO
+        gps_body_coords = self.gps_body.getValues()
+        
+        # Calcular la posición relativa del GPS con respecto al cuerpo
+        relative_coords = [gps_hand_coords[i] - gps_body_coords[i] for i in range(3)]
+        print("Coordenadas GPS relativas:", relative_coords)
+        return relative_coords
         
     def findAndEnableDevices(self):
         # get the time step of the current world.
@@ -314,11 +325,13 @@ class Nao (Robot):
         self.cameraTop.enable(4 * self.timeStep)
         self.cameraBottom.enable(4 * self.timeStep)
 
-        # gps
+        # gps_hand
         self.gps = self.getDevice('hand_gps')
         self.gps.enable(1)
-        self.printGps()
-
+        #self.printGps()
+        
+        self.gps_body= self.getDevice('gps_body')
+        self.gps_body.enable(1)
 
         # right arm motors
         self.RShoulderPitch = self.getDevice("RShoulderPitch")
@@ -334,10 +347,10 @@ class Nao (Robot):
         self.minRElbowYawPosition=self.RElbowYaw.getMinPosition();
         self.maxRElbowRollPosition=self.RElbowRoll.getMaxPosition();
         self.minRElbowRollPosition=self.RElbowRoll.getMinPosition();
-        print("Shoulder Pitch max:", self.maxRShoulderPitchPosition, "min :", self.minRShoulderPitchPosition);
-        print("Shoulder Roll max:", self.maxRShoulderRollPosition, "min :", self.minRShoulderRollPosition);
-        print("Elbow Yaw Pitch max:", self.maxRElbowYawPosition, "min :", self.minRElbowYawPosition);
-        print("Elbow Roll max:", self.maxRElbowRollPosition, "min :", self.minRElbowRollPosition);
+        #print("Shoulder Pitch max:", self.maxRShoulderPitchPosition, "min :", self.minRShoulderPitchPosition);
+        #print("Shoulder Roll max:", self.maxRShoulderRollPosition, "min :", self.minRShoulderRollPosition);
+        #print("Elbow Yaw Pitch max:", self.maxRElbowYawPosition, "min :", self.minRElbowYawPosition);
+        #print("Elbow Roll max:", self.maxRElbowRollPosition, "min :", self.minRElbowRollPosition);
         
         self.LShoulderPitch = self.getDevice("LShoulderPitch")
 
@@ -369,7 +382,7 @@ class Nao (Robot):
             
             motor_entry = [randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
             # Get GPS data
-            gps_entry = self.gps.getValues()
+            gps_entry = self.getRelativeCoords()
             #print(gps_entry)
             #normalize
             motor_entry= min_max_normalize_with_data(motor_entry, motor_data)
@@ -388,31 +401,51 @@ class Nao (Robot):
         random.seed(10)
             
         i = 0  # Initialize iteration counter
-        max_iterations = 100
+        max_iterations = 5000
+        print("Initializing hebbian table training for "+ str(max_iterations) + " iterations. \t")
+
+         # Mean and standard deviation for the normal distribution
+        mu_ShoulderPitch = (self.minRShoulderPitchPosition + self.maxRShoulderPitchPosition) / 2
+        sigma_ShoulderPitch = (self.maxRShoulderPitchPosition - self.minRShoulderPitchPosition) / 6  # Example std dev
     
+        mu_ShoulderRoll = (self.minRShoulderRollPosition + self.maxRShoulderRollPosition) / 2
+        sigma_ShoulderRoll = (self.maxRShoulderRollPosition - self.minRShoulderRollPosition) / 6  # Example std dev
+    
+        mu_ElbowYaw = (self.minRElbowYawPosition + self.maxRElbowYawPosition) / 2
+        sigma_ElbowYaw = (self.maxRElbowYawPosition - self.minRElbowYawPosition) / 6  # Example std dev
+    
+        mu_ElbowRoll = (self.minRElbowRollPosition + self.maxRElbowRollPosition) / 2
+        sigma_ElbowRoll = (self.maxRElbowRollPosition - self.minRElbowRollPosition) / 6  # Example std dev
+            
+
         #loop_delay = 0.5  # Adjust the delay as needed
         while robot.step(self.timeStep) != -1:
             # Generate random angles within the specified range
-            randomShoulderPitch =  round(random.uniform(self.minRShoulderPitchPosition,self.maxRShoulderPitchPosition),4)
-            randomShoulderRoll = round(random.uniform(self.minRShoulderRollPosition, self.maxRShoulderRollPosition),4)
-            randomElbowYaw = round(random.uniform(self.minRElbowYawPosition, self.maxRElbowYawPosition),4)
-            randomElbowRoll = round(random.uniform(self.minRElbowRollPosition, self.maxRElbowRollPosition),4)
+            randomShoulderPitch = round(random.gauss(mu_ShoulderPitch, sigma_ShoulderPitch), 4)
+            randomShoulderRoll = round(random.gauss(mu_ShoulderRoll, sigma_ShoulderRoll), 4)
+            randomElbowYaw = round(random.gauss(mu_ElbowYaw, sigma_ElbowYaw), 4)
+            randomElbowRoll = round(random.gauss(mu_ElbowRoll, sigma_ElbowRoll), 4)
             
+            # Ensure the angles are within the specified range
+            randomShoulderPitch = max(min(randomShoulderPitch, self.maxRShoulderPitchPosition), self.minRShoulderPitchPosition)
+            randomShoulderRoll = max(min(randomShoulderRoll, self.maxRShoulderRollPosition), self.minRShoulderRollPosition)
+            randomElbowYaw = max(min(randomElbowYaw, self.maxRElbowYawPosition), self.minRElbowYawPosition)
+            randomElbowRoll = max(min(randomElbowRoll, self.maxRElbowRollPosition), self.minRElbowRollPosition)
+                    
             # Set the random angles using the function
             self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
             
             motor_entry = [randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
             # Get GPS data
-            gps_entry = self.gps.getValues()
+            gps_entry = self.getRelativeCoords()
             
             #normalize
             motor_entry= min_max_normalize_with_data(motor_entry, motor_data)
             gps_entry= min_max_normalize_with_data(gps_entry, gps_data)
             
-            #print(self.gps.getSamplingPeriod())
-            #print('----------gps----------')
-            #print('position: [ x y z ] = [%f %f %f]' % (gps_data[0], gps_data[1], gps_data[2]))
-            time.sleep(1)
+            print("Iteration "+ str(i)+ "\t")
+            print("Waiting for 0.002s \t")
+            time.sleep(0.002)
             hebbian_table.learnUsingWinners(gps_entry, motor_entry)
             
             i += 1
@@ -433,7 +466,7 @@ class Nao (Robot):
             
             i = 0  # Initialize iteration counter
             max_iterations = 5000
-            
+            print("Obtaining training set samples for "+ str(max_iterations) + " iterations. \t")
             # Mean and standard deviation for the normal distribution
             mu_ShoulderPitch = (self.minRShoulderPitchPosition + self.maxRShoulderPitchPosition) / 2
             sigma_ShoulderPitch = (self.maxRShoulderPitchPosition - self.minRShoulderPitchPosition) / 6  # Example std dev
@@ -465,15 +498,19 @@ class Nao (Robot):
                     
                     # Set the random angles using the function
                     self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
-                       
+                    
+                    
                     # Get GPS data
-                    gps_data = self.gps.getValues()
+                    #gps_data = self.gps.getValues()
+                    gps_data = self.getRelativeCoords()
                     #print(self.gps.getSamplingPeriod())
                     print('----------gps----------')
                     print('position: [ x y z ] = [%f %f %f]' % (gps_data[0], gps_data[1], gps_data[2]))
                     
                     time.sleep(0.002)
                     print("Waiting for 0.002s \t")
+                       
+                    
                     motor_writer.writerow([i, randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll])
                     gps_writer.writerow([i,gps_data[0], gps_data[1], gps_data[2]])
                     
@@ -552,13 +589,13 @@ def generateAnglesSOM():
     #print(data)
     #print(type(data))
     # Initialization and training
-    n_neurons = 25 #5*sqrt(N) where N is the number of samples in the dataset
-    m_neurons = 25
+    n_neurons = 19 #5*sqrt(N) where N is the number of samples in the dataset
+    m_neurons = 19
 
     somAngles = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=3, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
 
     somAngles.pca_weights_init(data)
-    somAngles.train(data, 100, verbose=True)  # random training
+    somAngles.train(data, 1000, verbose=True)  # random training
     
     print("SOM Sensorial done")
     
@@ -591,14 +628,14 @@ def generateVisualSOM():
     
     
     # Initialization and training
-    n_neurons = 25
-    m_neurons = 25
+    n_neurons = 19
+    m_neurons = 19
     
     somVisual = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=3, learning_rate=.5, 
                   neighborhood_function='gaussian', random_seed=0, topology='rectangular')
     
     somVisual.pca_weights_init(data)
-    somVisual.train(data, 100, verbose=True)  # random training
+    somVisual.train(data, 1000, verbose=True)  # random training
     
     # saving the som
     with open('somVisual.p', 'wb') as outfile:
@@ -672,12 +709,13 @@ def generateSOIMA():
 
 # create the Robot instance and run main loop
 robot = Nao()
-robot.run()
+#robot.run()
 
 ####train data
 motor_data = []
 gps_data = []
-    
+
+# Leer los datos del motor del CSV
 with open("motor_angles.csv", "r", newline='') as motor_csvfile:
     motor_reader = csv.reader(motor_csvfile)
    
@@ -696,8 +734,8 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
 
     
 #####train SOMS
-generateAnglesSOM()
-generateVisualSOM()
+#generateAnglesSOM()
+#generateVisualSOM()
 #generateSOIMA()
 
 #####load SOMS           
@@ -707,8 +745,8 @@ with open('somVisual.p', 'rb') as infile:
 with open('somAngles.p', 'rb') as infile:
     somAngles = pickle.load(infile)
 
-with open('soima.p', 'rb') as infile:
-    somCombined = pickle.load(infile)
+# with open('soima.p', 'rb') as infile:
+#     somCombined = pickle.load(infile)
     
 #####train hebbian table
 #hebbian_table = HebbianTable()
@@ -728,7 +766,7 @@ hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
 hebbian_table.loadFromFile("hebbian_table_new.txt")
 
-#robot.hebbianTest(1)
+robot.hebbianTest(1)
 
 
 def interpolar_coordenadas_prediccion(coord1, coord2, num_intermedios):
