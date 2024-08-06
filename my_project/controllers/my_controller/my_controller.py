@@ -146,7 +146,7 @@ class HebbianTable:
         
         #get winner neuron
         som1_winner = self.som1.winner(som1_vector)
-        print("BMU SOM 1: ", som1_winner)
+        #print("BMU SOM 1: ", som1_winner)
         
         #get the coordinates from som2
         coordinates = []
@@ -312,7 +312,7 @@ class Nao (Robot):
         
         # Calcular la posición relativa del GPS con respecto al cuerpo
         relative_coords = [gps_hand_coords[i] - gps_body_coords[i] for i in range(3)]
-        print("Coordenadas GPS relativas:", relative_coords)
+        #print("Coordenadas GPS relativas:", relative_coords)
         return relative_coords
         
     def findAndEnableDevices(self):
@@ -396,6 +396,18 @@ class Nao (Robot):
             else:
                 print("BMU SOM 1: ", hebbian_table.getConectionsFromSOM2(motor_entry))
         
+    def executeMovement(self, rotation_angles, target_coordinate):
+        while robot.step(self.timeStep) != -1:
+            # Set the random angles using the function
+            self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
+            # Get GPS data
+            time.sleep(0.002)
+            gps_entry = self.getRelativeCoords()
+            # Calculate predictive error between current position and target
+            pred_error = np.linalg.norm(np.array(gps_entry) - np.array(target_coordinate))
+            print("Prediction error: ", pred_error)
+            break
+        return pred_error
         
     def hebbianTrain(self):
         random.seed(10)
@@ -529,6 +541,20 @@ somAngles = None
 somVisual = None
 somCombined = None
 
+#denormalize a vector given dataset
+def denormalize_vector(normalized_vector, data):
+    # Calculate min and max for each feature in the dataset
+    min_values = np.min(data, axis=0)
+    max_values = np.max(data, axis=0)
+    
+    # Denormalize the vector
+    denormalized_vector = []
+    for i in range(len(normalized_vector)):
+        denormalized_value = normalized_vector[i] * (max_values[i] - min_values[i]) + min_values[i]
+        denormalized_vector.append(denormalized_value)
+    return denormalized_vector
+    
+    
 #normalize a data set
 def min_max_normalize(x):
     min_val = np.min(x, axis=0)
@@ -766,7 +792,7 @@ hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
 hebbian_table.loadFromFile("hebbian_table_new.txt")
 
-robot.hebbianTest(1)
+#robot.hebbianTest(1)
 
 
 def interpolar_coordenadas_prediccion(coord1, coord2, num_intermedios):
@@ -781,56 +807,83 @@ def interpolar_coordenadas_prediccion(coord1, coord2, num_intermedios):
 
 
 # Define the dimensions of the SOM
-#som_height = somCombined.get_weights().shape[0]  # Number of rows
-#som_width = somCombined.get_weights().shape[1]   # Number of columns
+som_height = somVisual.get_weights().shape[0]  # Number of rows
+som_width = somVisual.get_weights().shape[1]   # Number of columns
 
 # Generate all possible coordinates
-#all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
+all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
 
 # Shuffle the list of coordinates
-#random.shuffle(all_coordinates)
+random.shuffle(all_coordinates)
 
 # Select 10 unique pairs of coordinates without repetition
-#selected_pairs = []
-#selected_pairs_count = 0
+selected_pairs = []
+selected_pairs_count = 0
 
-#while selected_pairs_count < 10:
+numberOfTasks = 10
+
+while selected_pairs_count < numberOfTasks:
     # Select two random coordinates
-    #coord1 = random.choice(all_coordinates)
-    #coord2 = random.choice(all_coordinates)
+    coord1 = random.choice(all_coordinates)
+    coord2 = random.choice(all_coordinates)
     
     # Ensure the pair is unique and not repeated
-    #if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
-     #   selected_pairs.append((coord1, coord2))
-      #  selected_pairs_count += 1
+    if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
+        selected_pairs.append((coord1, coord2))
+        selected_pairs_count += 1
 
 # Create a dictionary to store the data
-#data_dict = {}
+data_dict = {}
+
+numberOfPolicies = 4
+lengthOfPolicies = 10
+lengthOfBuffers = 10
 
 # Populate the dictionary with selected pairs, associated sets, and buffers
-#for pair in selected_pairs:
- #   sets_and_buffers = {}
-  #  for i in range(4):
-   #     set_pairs = set()
-        # Add three random coordinates not equal to the pair coordinates
-    #    while len(set_pairs) < 3:
-     #       random_coord = random.choice(all_coordinates)
-      #      if random_coord != pair[0] and random_coord != pair[1]:
-       #         set_pairs.add(random_coord)
-        # Initialize buffer with zeros and size 4
-        #buffer = [0] * 4
-        #sets_and_buffers[tuple(set_pairs)] = buffer
-    # Initialize another error buffer with zeros and size 10
-    #error_buffer = [0] * 10
-    #data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers, "Error_Buffer": error_buffer}
+for pair in selected_pairs:
+    sets_and_buffers = {}
+    for i in range(numberOfPolicies):
+        set_pairs = set()
+        # Add random coordinates not equal to the pair coordinates
+        while len(set_pairs) < lengthOfPolicies:
+            random_coord = random.choice(all_coordinates)
+            if random_coord != pair[0] and random_coord != pair[1]:
+                set_pairs.add(random_coord)
+        # Initialize buffer with zeros
+        buffer = [0] * lengthOfBuffers
+        sets_and_buffers[tuple(set_pairs)] = buffer
+    data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers}
 
 # Print the structured data
 #for pair, values in data_dict.items():
     #print("Pair:", pair)
     #print("Associated Sets and Buffers:")
     #for set_pairs, buffer in values["Sets_and_Buffers"].items():
-     #   print("Set:", set_pairs)
-     #   print("Associated Buffer:", buffer)
-     #   print()
-    #print("Associated Error Buffer (Size 10):", values["Error_Buffer"])
+        #print("Set:", set_pairs)
+        #print("Associated Buffer:", buffer)
+        #print()
     #print()
+    
+for pair, values in data_dict.items():
+    visual_goal= denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]],gps_data)
+    for set_pairs, buffer in values["Sets_and_Buffers"].items():
+        # Calculate predictive error for each coordinate in set_pairs
+        for idx, coord in enumerate(set_pairs):
+            visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+            motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
+            #print(visual_input)
+            
+            
+            #print(motor_angles_coord)
+            if motor_angles_coord != None:
+                rotation_angles=denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]],motor_data)
+                #print(rotation_angles)
+                
+                # Assume the final goal is the second coordinate of the pair
+                predictive_error = robot.executeMovement(rotation_angles, visual_goal)
+                # Store predictive error in the buffer
+                if idx < len(buffer):  # Ensure we don't go out of bounds
+                    buffer[idx] = predictive_error
+    
+
+    
