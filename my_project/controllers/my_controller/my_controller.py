@@ -405,7 +405,7 @@ class Nao (Robot):
             gps_entry = self.getRelativeCoords()
             # Calculate predictive error between current position and target
             pred_error = np.linalg.norm(np.array(gps_entry) - np.array(target_coordinate))
-            print("Prediction error: ", pred_error)
+            #print("Prediction error: ", pred_error)
             break
         return pred_error
         
@@ -539,7 +539,7 @@ class Nao (Robot):
 
 somAngles = None
 somVisual = None
-somCombined = None
+somTasks = None
 
 #denormalize a vector given dataset
 def denormalize_vector(normalized_vector, data):
@@ -615,15 +615,18 @@ def generateAnglesSOM():
     #print(data)
     #print(type(data))
     # Initialization and training
-    n_neurons = 19 #5*sqrt(N) where N is the number of samples in the dataset
-    m_neurons = 19
+    num_samples = len(data)
+    # Calculate the number of neurons using the rule of thumb
+    num_neurons = 5 * math.sqrt(num_samples)
+    # Determine the grid size
+    grid_size = int(math.ceil(math.sqrt(num_neurons)))
 
-    somAngles = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=3, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
+    somAngles = MiniSom(grid_size, grid_size, data.shape[1], sigma=3, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
 
     somAngles.pca_weights_init(data)
     somAngles.train(data, 1000, verbose=True)  # random training
     
-    print("SOM Sensorial done")
+    print("SOM Sensorial trained")
     
     # saving the som
     with open('somAngles.p', 'wb') as outfile:
@@ -649,88 +652,55 @@ def generateVisualSOM():
     data = data[data.columns[1:]]
     # Data normalization
     data = min_max_normalize(data)
-    #(data - np.mean(data, axis=0)) / np.std(data, axis=0)
     data = data.values
     
+    num_samples = len(data)
+    # Calculate the number of neurons using the rule of thumb
+    num_neurons = 5 * math.sqrt(num_samples)
+    # Determine the grid size
+    grid_size = int(math.ceil(math.sqrt(num_neurons)))
     
-    # Initialization and training
-    n_neurons = 19
-    m_neurons = 19
-    
-    somVisual = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=3, learning_rate=.5, 
+    somVisual = MiniSom(grid_size, grid_size, data.shape[1], sigma=3, learning_rate=.5, 
                   neighborhood_function='gaussian', random_seed=0, topology='rectangular')
     
     somVisual.pca_weights_init(data)
     somVisual.train(data, 1000, verbose=True)  # random training
+    
+    print("SOM Visual trained")
     
     # saving the som
     with open('somVisual.p', 'wb') as outfile:
         pickle.dump(somVisual, outfile)
     
     
-def generateSOIMA():
+def generateTaskSOM():
     
-    global somCombined
+    global somTasks
     
-    motor_data = []
-    gps_data = []
+    data = pd.read_csv('tasks_train_dataset.csv', sep=',', engine='python')
     
-    # Leer los angulos de los motores del CSV
-    with open("motor_angles.csv", "r", newline='') as motor_csvfile:
-        motor_reader = csv.reader(motor_csvfile)
+    # Data normalization
+    data = min_max_normalize(data)
+    data = data.values
+    
+    num_samples = len(data)
+    # Calculate the number of neurons using the rule of thumb
+    num_neurons = 5 * math.sqrt(num_samples)
+    # Determine the grid size
+    grid_size = int(math.ceil(math.sqrt(num_neurons)))
        
-        for row in motor_reader:
-            motor_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
-    
-    # Leer los datos del GPS del CSV
-    with open("gps_hand.csv", "r", newline='') as gps_csvfile:
-        gps_reader = csv.reader(gps_csvfile)
-       
-        for row in gps_reader:
-            gps_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
-    
-    #print(somVisual.winner(random.choice(gps_data)));
-    
-    #normalize
-    motor_data= min_max_normalize(motor_data)
-    gps_data= min_max_normalize(gps_data)
-    
-    # Obtener todas las coordenadas del som visual
-    visual_coordinates = [somVisual.winner(entry) for entry in gps_data]
-    # Obtener todas las coordenadas del som motor
-    motor_coordinates = [somAngles.winner(entry) for entry in motor_data]
-    
-    
-    # Crear un nuevo conjunto de datos que consiste en todas las combinaciones de las coordenadas
-    combined_dataset = []
-    
-    for visual_coord, motor_coord in zip(visual_coordinates, motor_coordinates):
-        combined_entry = visual_coord + motor_coord  # Concatenate the two coordinate vectors
-        combined_dataset.append(combined_entry)
-    
-    combined_dataset= pd.DataFrame(combined_dataset)
-    
-    combined_dataset = min_max_normalize(combined_dataset)
-    
-    combined_dataset=combined_dataset.values
-    
-    #print(combined_dataset.size)
-    #print(combined_dataset)
-    
     #Initialization and training
-    n_neurons_combined = 25
-    m_neurons_combined = 25
     
-    
-    somCombined = MiniSom(n_neurons_combined, m_neurons_combined, combined_dataset.shape[1], sigma=1.5, learning_rate=.5, 
-                      neighborhood_function='gaussian', random_seed=0, topology='rectangular')
+    somTasks = MiniSom(grid_size, grid_size, data.shape[1], sigma=1.5, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
         
-    somCombined.pca_weights_init(combined_dataset)
-    somCombined.train(combined_dataset, 1000, verbose=True)  # random training
+    somTasks.pca_weights_init(data)
+    somTasks.train(data, 1000, verbose=True)  # random training
+    
+    print("SOM Tasks trained")
     
     # saving the som
-    with open('soima.p', 'wb') as outfile:
-        pickle.dump(somCombined, outfile)
+    with open('somTasks.p', 'wb') as outfile:
+        pickle.dump(somTasks, outfile)
         
 
 # create the Robot instance and run main loop
@@ -762,7 +732,6 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
 #####train SOMS
 #generateAnglesSOM()
 #generateVisualSOM()
-#generateSOIMA()
 
 #####load SOMS           
 with open('somVisual.p', 'rb') as infile:
@@ -771,9 +740,6 @@ with open('somVisual.p', 'rb') as infile:
 with open('somAngles.p', 'rb') as infile:
     somAngles = pickle.load(infile)
 
-# with open('soima.p', 'rb') as infile:
-#     somCombined = pickle.load(infile)
-    
 #####train hebbian table
 #hebbian_table = HebbianTable()
 #hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
@@ -854,15 +820,7 @@ for pair in selected_pairs:
         sets_and_buffers[tuple(set_pairs)] = buffer
     data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers}
 
-# Print the structured data
-#for pair, values in data_dict.items():
-    #print("Pair:", pair)
-    #print("Associated Sets and Buffers:")
-    #for set_pairs, buffer in values["Sets_and_Buffers"].items():
-        #print("Set:", set_pairs)
-        #print("Associated Buffer:", buffer)
-        #print()
-    #print()
+
     
 for pair, values in data_dict.items():
     visual_goal= denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]],gps_data)
@@ -886,4 +844,33 @@ for pair, values in data_dict.items():
                     buffer[idx] = predictive_error
     
 
+# Print the structured data
+#for pair, values in data_dict.items():
+#    print("Pair:", pair)
+#    print("Associated Sets and Buffers:")
+#    for set_pairs, buffer in values["Sets_and_Buffers"].items():
+#        print("Set:", set_pairs)
+#        print("Associated Buffer:", buffer)
+#        print()
+#    print()  
     
+#Flatten the Data
+feature_vectors = []
+
+for pair, values in data_dict.items():
+    for set_pairs, buffer in values["Sets_and_Buffers"].items():
+        # Create a feature vector from pair, set_pairs, and buffer
+        flat_set_pairs = [coord for coord_pair in set_pairs for coord in coord_pair]
+        # Combine pair, flattened set_pairs, and buffer into one feature vector
+        feature_vector = list(pair[0]) + list(pair[1]) + flat_set_pairs + buffer
+        feature_vectors.append(feature_vector)
+
+# Convert to numpy array
+tasks_array = np.array(feature_vectors)
+#print(tasks_array)
+
+#save into csv file
+np.savetxt('tasks_train_dataset.csv', tasks_array, delimiter=',', fmt='%.6f')
+
+########TRAIN TASK SOM    
+generateTaskSOM()  
