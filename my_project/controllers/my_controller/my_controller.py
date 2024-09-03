@@ -816,7 +816,7 @@ for pair in selected_pairs:
             if random_coord != pair[0] and random_coord != pair[1]:
                 set_pairs.add(random_coord)
         # Initialize buffer with zeros
-        buffer = [0] * lengthOfBuffers
+        buffer = [10**6] * lengthOfBuffers
         sets_and_buffers[tuple(set_pairs)] = buffer
     data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers}
 
@@ -854,23 +854,46 @@ for pair, values in data_dict.items():
 #        print()
 #    print()  
     
-#Flatten the Data
+#Get the vector to train tasks som
 feature_vectors = []
 
 for pair, values in data_dict.items():
     for set_pairs, buffer in values["Sets_and_Buffers"].items():
-        # Create a feature vector from pair, set_pairs, and buffer
-        flat_set_pairs = [coord for coord_pair in set_pairs for coord in coord_pair]
-        # Combine pair, flattened set_pairs, and buffer into one feature vector
-        feature_vector = list(pair[0]) + list(pair[1]) + flat_set_pairs + buffer
-        feature_vectors.append(feature_vector)
+        feature_vectors.append(buffer)
 
 # Convert to numpy array
 tasks_array = np.array(feature_vectors)
-#print(tasks_array)
 
-#save into csv file
+# Save into CSV file
 np.savetxt('tasks_train_dataset.csv', tasks_array, delimiter=',', fmt='%.6f')
 
 ########TRAIN TASK SOM    
 generateTaskSOM()  
+
+#linear regression
+def estimate_coef(x, y):
+    n = np.size(x)
+    #mean of x and y vector
+    m_x = np.mean(x)
+    m_y = np.mean(y)
+    
+    SS_xy = np.sum(y*x) - n*m_y*m_x
+    SS_xx = np.sum(x*x) - n*m_x*m_x
+    
+    b_1 = SS_xy / SS_xx
+    b_0 = m_y - b_1*m_x
+    return (b_0, b_1)
+    
+
+time = np.arange(tasks_array.shape[1]).reshape(-1, 1)
+
+#get the slopes for each error buffer
+slopes = []
+
+for buffer in tasks_array:
+    lin_reg=estimate_coef(time, buffer)
+    slope = lin_reg[0]
+    slopes.append(slope)
+
+slopes = np.array(slopes)
+print("Pendientes de las regresiones lineales sobre los buffers:", slopes)
