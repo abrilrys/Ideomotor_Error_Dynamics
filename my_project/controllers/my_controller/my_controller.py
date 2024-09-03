@@ -816,7 +816,7 @@ for pair in selected_pairs:
             if random_coord != pair[0] and random_coord != pair[1]:
                 set_pairs.add(random_coord)
         # Initialize buffer with zeros
-        buffer = [10**6] * lengthOfBuffers
+        buffer = [0] * lengthOfBuffers
         sets_and_buffers[tuple(set_pairs)] = buffer
     data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers}
 
@@ -885,14 +885,14 @@ def estimate_coef(x, y):
     return (b_0, b_1)
     
 
-time = np.arange(tasks_array.shape[1]).reshape(-1, 1)
+time = np.arange(tasks_array.shape[1])
 
 #get the slopes for each error buffer
 slopes = []
 
 for buffer in tasks_array:
     lin_reg=estimate_coef(time, buffer)
-    slope = lin_reg[0]
+    slope = lin_reg[1]
     slopes.append(slope)
 
 slopes = np.array(slopes)
