@@ -598,7 +598,7 @@ def generateAnglesSOM():
     
     # Load data
     columns = ['Key','RShoulderPitch', 'RShoulderRoll', 'RElbowYaw', 'RElbowRoll']
-    data = pd.read_csv('motor_angles.csv', names=columns, sep=',', engine='python')
+    data = pd.read_csv('motor_angles.csv', names=columns, sep=',', engine='python', header=None)
 
 
     target = data['Key'].values
@@ -643,7 +643,7 @@ def generateVisualSOM():
     global somVisual
     
     columns = ['Key','X', 'Y', 'Z']
-    data = pd.read_csv('gps_hand.csv', names=columns, sep=',', engine='python')
+    data = pd.read_csv('gps_hand.csv', names=columns, sep=',', engine='python', header=None)
     
     
     target = data['Key'].values
@@ -677,7 +677,7 @@ def generateTaskSOM():
     
     global somTasks
     
-    data = pd.read_csv('tasks_train_dataset.csv', sep=',', engine='python')
+    data = pd.read_csv('tasks_train_dataset.csv', sep=',', engine='python', header=None)
     
     # Data normalization
     data = min_max_normalize(data)
@@ -816,12 +816,26 @@ for pair in selected_pairs:
             if random_coord != pair[0] and random_coord != pair[1]:
                 set_pairs.add(random_coord)
         # Initialize buffer with zeros
-        buffer = [0] * lengthOfBuffers
+        buffer = []
+        valor = 0
+        while len(buffer) < lengthOfBuffers:
+            buffer.append(valor)
+            valor += 10
+        #print(buffer)
         sets_and_buffers[tuple(set_pairs)] = buffer
     data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers}
 
 
+#for pair, values in data_dict.items():
+ #   print("Pair:", pair)
+  #  print("Associated Sets and Buffers:")
+   # for set_pairs, buffer in values["Sets_and_Buffers"].items():
+    #    print("Set:", set_pairs)
+     #   print("Associated Buffer:", buffer)
+      #  print()
+    #print()  
     
+
 for pair, values in data_dict.items():
     visual_goal= denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]],gps_data)
     for set_pairs, buffer in values["Sets_and_Buffers"].items():
@@ -844,15 +858,7 @@ for pair, values in data_dict.items():
                     buffer[idx] = predictive_error
     
 
-# Print the structured data
-#for pair, values in data_dict.items():
-#    print("Pair:", pair)
-#    print("Associated Sets and Buffers:")
-#    for set_pairs, buffer in values["Sets_and_Buffers"].items():
-#        print("Set:", set_pairs)
-#        print("Associated Buffer:", buffer)
-#        print()
-#    print()  
+
     
 #Get the vector to train tasks som
 feature_vectors = []
