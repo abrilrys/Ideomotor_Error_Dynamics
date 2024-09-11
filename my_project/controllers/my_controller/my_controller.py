@@ -762,142 +762,234 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 
 ######################################################################################
 
-# Define the dimensions of the SOM
-som_height = somVisual.get_weights().shape[0]  # Number of rows
-som_width = somVisual.get_weights().shape[1]   # Number of columns
+# # Define the dimensions of the SOM
+# som_height = somVisual.get_weights().shape[0]  # Number of rows
+# som_width = somVisual.get_weights().shape[1]   # Number of columns
 
-# Generate all possible coordinates
-all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
+# # Generate all possible coordinates
+# all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
 
-# Shuffle the list of coordinates
-random.shuffle(all_coordinates)
+# # Shuffle the list of coordinates
+# random.shuffle(all_coordinates)
 
-# Select 10 unique pairs of coordinates without repetition
-selected_pairs = []
-selected_pairs_count = 0
+# # Select 10 unique pairs of coordinates without repetition
+# selected_pairs = []
+# selected_pairs_count = 0
 
-numberOfTasks = 10
+# numberOfTasks = 10
 
-while selected_pairs_count < numberOfTasks:
-    # Select two random coordinates
-    coord1 = random.choice(all_coordinates)
-    coord2 = random.choice(all_coordinates)
+# while selected_pairs_count < numberOfTasks:
+#     # Select two random coordinates
+#     coord1 = random.choice(all_coordinates)
+#     coord2 = random.choice(all_coordinates)
     
-    # Ensure the pair is unique and not repeated
-    if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
-        selected_pairs.append((coord1, coord2))
-        selected_pairs_count += 1
+#     # Ensure the pair is unique and not repeated
+#     if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
+#         selected_pairs.append((coord1, coord2))
+#         selected_pairs_count += 1
 
-# Create a dictionary to store the data
-data_dict = {}
+# # Create a dictionary to store the data
+# data_dict = {}
 
-numberOfPolicies = 4
-lengthOfPolicies = 10
-lengthOfBuffers = 10
+# numberOfPolicies = 4
+# lengthOfPolicies = 10
+# lengthOfBuffers = 10
 
-# Populate the dictionary with selected pairs, associated sets, and buffers
-for pair in selected_pairs:
-    sets_and_buffers = {}
-    for i in range(numberOfPolicies):
-        set_pairs = set()
-        # Add random coordinates not equal to the pair coordinates
-        while len(set_pairs) < lengthOfPolicies:
-            random_coord = random.choice(all_coordinates)
-            if random_coord != pair[0] and random_coord != pair[1]:
-                set_pairs.add(random_coord)
-        # Initialize buffer with zeros
-        buffer = []
-        valor = 0
-        while len(buffer) < lengthOfBuffers:
-            buffer.append(valor)
-            valor += 10
-        #print(buffer)
-        sets_and_buffers[tuple(set_pairs)] = buffer
-    data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers}
+# # Populate the dictionary with selected pairs, associated sets, and buffers
+# for pair in selected_pairs:
+#     sets_and_buffers = {}
+#     for i in range(numberOfPolicies):
+#         set_pairs = set()
+#         # Add random coordinates not equal to the pair coordinates
+#         while len(set_pairs) < lengthOfPolicies:
+#             random_coord = random.choice(all_coordinates)
+#             if random_coord != pair[0] and random_coord != pair[1]:
+#                 set_pairs.add(random_coord)
+#         # Initialize buffer with zeros
+#         buffer = []
+#         valor = 0
+#         while len(buffer) < lengthOfBuffers:
+#             buffer.append(valor)
+#             valor += 10
+#         #print(buffer)
+#         sets_and_buffers[tuple(set_pairs)] = buffer
+#     data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers}
 
 
-#for pair, values in data_dict.items():
- #   print("Pair:", pair)
-  #  print("Associated Sets and Buffers:")
-   # for set_pairs, buffer in values["Sets_and_Buffers"].items():
-    #    print("Set:", set_pairs)
-     #   print("Associated Buffer:", buffer)
-      #  print()
-    #print()  
+# #for pair, values in data_dict.items():
+#  #   print("Pair:", pair)
+#   #  print("Associated Sets and Buffers:")
+#    # for set_pairs, buffer in values["Sets_and_Buffers"].items():
+#     #    print("Set:", set_pairs)
+#      #   print("Associated Buffer:", buffer)
+#       #  print()
+#     #print()  
     
 
-for pair, values in data_dict.items():
-    visual_goal= denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]],gps_data)
-    for set_pairs, buffer in values["Sets_and_Buffers"].items():
-        # Calculate predictive error for each coordinate in set_pairs
-        for idx, coord in enumerate(set_pairs):
-            visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
-            motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
-            #print(visual_input)
+# for pair, values in data_dict.items():
+#     visual_goal= denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]],gps_data)
+#     for set_pairs, buffer in values["Sets_and_Buffers"].items():
+#         # Calculate predictive error for each coordinate in set_pairs
+#         for idx, coord in enumerate(set_pairs):
+#             visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+#             motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
+#             #print(visual_input)
             
             
-            #print(motor_angles_coord)
-            if motor_angles_coord != None:
-                rotation_angles=denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]],motor_data)
-                #print(rotation_angles)
+#             #print(motor_angles_coord)
+#             if motor_angles_coord != None:
+#                 rotation_angles=denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]],motor_data)
+#                 #print(rotation_angles)
                 
-                # Assume the final goal is the second coordinate of the pair
-                predictive_error = robot.executeMovement(rotation_angles, visual_goal)
-                # Store predictive error in the buffer
-                if idx < len(buffer):  # Ensure we don't go out of bounds
-                    buffer[idx] = predictive_error
+#                 # Assume the final goal is the second coordinate of the pair
+#                 predictive_error = robot.executeMovement(rotation_angles, visual_goal)
+#                 # Store predictive error in the buffer
+#                 if idx < len(buffer):  # Ensure we don't go out of bounds
+#                     buffer[idx] = predictive_error
     
 
 
     
-#Get the vector to train tasks som
-feature_vectors = []
+# #Get the vector to train tasks som
+# feature_vectors = []
 
-for pair, values in data_dict.items():
-    for set_pairs, buffer in values["Sets_and_Buffers"].items():
-        feature_vectors.append(buffer)
+# for pair, values in data_dict.items():
+#     for set_pairs, buffer in values["Sets_and_Buffers"].items():
+#         feature_vectors.append(buffer)
 
-# Convert to numpy array
-tasks_array = np.array(feature_vectors)
+# # Convert to numpy array
+# tasks_array = np.array(feature_vectors)
 
-# Save into CSV file
-np.savetxt('tasks_train_dataset.csv', tasks_array, delimiter=',', fmt='%.6f')
+# # Save into CSV file
+# np.savetxt('tasks_train_dataset.csv', tasks_array, delimiter=',', fmt='%.6f')
 
-########TRAIN TASK SOM    
-generateTaskSOM()  
+# ########TRAIN TASK SOM    
+# generateTaskSOM()  
 
-#linear regression
-def estimate_coef(x, y):
-    n = np.size(x)
-    #mean of x and y vector
-    m_x = np.mean(x)
-    m_y = np.mean(y)
+# #linear regression
+# def estimate_coef(x, y):
+#     n = np.size(x)
+#     #mean of x and y vector
+#     m_x = np.mean(x)
+#     m_y = np.mean(y)
     
-    SS_xy = np.sum(y*x) - n*m_y*m_x
-    SS_xx = np.sum(x*x) - n*m_x*m_x
+#     SS_xy = np.sum(y*x) - n*m_y*m_x
+#     SS_xx = np.sum(x*x) - n*m_x*m_x
     
-    b_1 = SS_xy / SS_xx
-    b_0 = m_y - b_1*m_x
-    return (b_0, b_1)
+#     b_1 = SS_xy / SS_xx
+#     b_0 = m_y - b_1*m_x
+#     return (b_0, b_1)
     
 
-time = np.arange(tasks_array.shape[1])
+# time_buffer = np.arange(tasks_array.shape[1])
 
-#get the slopes for each error buffer
-slopes = []
+# #get the slopes for each error buffer
+# slopes = []
 
-for buffer in tasks_array:
-    lin_reg=estimate_coef(time, buffer)
-    slope = lin_reg[1]
-    slopes.append(slope)
+# for buffer in tasks_array:
+#     lin_reg=estimate_coef(time_buffer, buffer)
+#     slope = lin_reg[1]
+#     slopes.append(slope)
 
-slopes = np.array(slopes)
-print("Pendientes de las regresiones lineales sobre los buffers:\n", slopes)
+# slopes = np.array(slopes)
+# print("Pendientes de las regresiones lineales sobre los buffers:\n", slopes)
 
+#######################################################################################
 class IntrinsicMotivation:
     def __init__(self):
-        self.goal=1
+        self.lengthOfBuffers=10
+        self.task_dictionary=self.initialize_task_dictionary()
+        self.slopes=self.get_slopes()
+        print(self.slopes)
+        
+    def initialize_task_dictionary(self):
+        # Define the dimensions of the SOM
+        som_height = somVisual.get_weights().shape[0]  # Number of rows
+        som_width = somVisual.get_weights().shape[1]   # Number of columns
+        
+        # Generate all possible coordinates
+        all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
+        
+        # Shuffle the list of coordinates
+        random.shuffle(all_coordinates)
+        
+        # Select 10 unique pairs of coordinates without repetition
+        selected_pairs = []
+        selected_pairs_count = 0
+        
+        numberOfTasks = 10
+        
+        while selected_pairs_count < numberOfTasks:
+            # Select two random coordinates
+            coord1 = random.choice(all_coordinates)
+            coord2 = random.choice(all_coordinates)
+            
+            # Ensure the pair is unique and not repeated
+            if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
+                selected_pairs.append((coord1, coord2))
+                selected_pairs_count += 1
+        
+        # Create a dictionary to store the data
+        data_dict = {}
+        
+        numberOfPolicies = 4
+        lengthOfPolicies = 10
+        lengthOfBuffers = 10
+        
+        # Populate the dictionary with selected pairs, associated sets, and buffers
+        for task_index, pair in enumerate(selected_pairs, start=1):
+            sets_and_buffers = {}
+            for policy_index in range(1, numberOfPolicies + 1):
+                set_pairs = set()
+                # Add random coordinates not equal to the pair coordinates
+                while len(set_pairs) < lengthOfPolicies:
+                    random_coord = random.choice(all_coordinates)
+                    if random_coord != pair[0] and random_coord != pair[1]:
+                        set_pairs.add(random_coord)
+                # Initialize buffer with zeros
+                buffer = []
+                valor = 0
+                while len(buffer) < self.lengthOfBuffers:
+                    buffer.append(valor)
+                    valor += 10
+                # Store the policy with its index
+                sets_and_buffers[f"Policy_{policy_index}"] = {
+                    "Set": tuple(set_pairs),
+                    "Buffer": buffer
+                }
+            # Store the task with its index
+            data_dict[f"Task_{task_index}"] = {
+                "Coordinates": pair,
+                "Sets_and_Buffers": sets_and_buffers
+            }
+        
+        # Calculate predictive error and update the buffer
+        for task, values in data_dict.items():
+            pair = values["Coordinates"]
+            visual_goal = denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]], gps_data)
+            
+            for policy, policy_data in values["Sets_and_Buffers"].items():
+                set_pairs = policy_data["Set"]
+                buffer = policy_data["Buffer"]
+                
+                # Calculate predictive error for each coordinate in set_pairs
+                for idx, coord in enumerate(set_pairs):
+                    visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                    motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
+                    
+                    if motor_angles_coord is not None:
+                        rotation_angles = denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
+                        
+                        # Assume the final goal is the second coordinate of the pair
+                        predictive_error = robot.executeMovement(rotation_angles, visual_goal)
+                        
+                        # Store predictive error in the buffer
+                        if idx < len(buffer):  # Ensure we don't go out of bounds
+                            buffer[idx] = predictive_error    
+        return data_dict
+        
     
+       
     def get_best_goal(self):
         best_goal=1
         return best_goal
@@ -908,7 +1000,45 @@ class IntrinsicMotivation:
         
     def change_policy(self):
         self.goal=1
-		
+        
+    #linear regression
+    def estimate_coef(self,x, y):
+        n = np.size(x)
+        #mean of x and y vector
+        m_x = np.mean(x)
+        m_y = np.mean(y)
+        
+        SS_xy = np.sum(y*x) - n*m_y*m_x
+        SS_xx = np.sum(x*x) - n*m_x*m_x
+        
+        b_1 = SS_xy / SS_xx
+        b_0 = m_y - b_1*m_x
+        return (b_0, b_1)
+        
+    def get_slopes(self):
+        time_buffer = np.arange(self.lengthOfBuffers)
+        # List to store slopes of each buffer
+        slopes = []
+        
+        # Calculate slopes for each buffer in data_dict
+        for task, values in self.task_dictionary.items():
+            for policy, policy_data in values["Sets_and_Buffers"].items():
+                buffer = policy_data["Buffer"]
+                # Perform linear regression on the buffer
+                lin_reg = self.estimate_coef(time_buffer, np.array(buffer))
+                slope = lin_reg[1]
+                
+                # Store the slope in the dictionary (if desired)
+                policy_data["Slope"] = slope
+                
+                # Also store it in the slopes list
+                slopes.append(slope)
+
+        slopes = np.array(slopes)
+        return slopes
+    
+
+intrin= IntrinsicMotivation()		
     
 class Experiment:
     
