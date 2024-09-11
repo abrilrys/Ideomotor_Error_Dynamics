@@ -897,10 +897,10 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 #######################################################################################
 class IntrinsicMotivation:
     def __init__(self):
-        self.lengthOfBuffers=10
+        self.lengthOfBuffers=11
         self.task_dictionary=self.initialize_task_dictionary()
         self.slopes=self.get_slopes()
-        print(self.slopes)
+        #print(self.slopes)
         
     def initialize_task_dictionary(self):
         # Define the dimensions of the SOM
@@ -934,7 +934,7 @@ class IntrinsicMotivation:
         
         numberOfPolicies = 4
         lengthOfPolicies = 10
-        lengthOfBuffers = 10
+        lengthOfBuffers = self.lengthOfBuffers
         
         # Populate the dictionary with selected pairs, associated sets, and buffers
         for task_index, pair in enumerate(selected_pairs, start=1):
@@ -946,6 +946,10 @@ class IntrinsicMotivation:
                     random_coord = random.choice(all_coordinates)
                     if random_coord != pair[0] and random_coord != pair[1]:
                         set_pairs.add(random_coord)
+                        
+                set_pairs = list(set_pairs)
+                set_pairs.insert(0, pair[0])
+                #print(set_pairs)
                 # Initialize buffer with zeros
                 buffer = []
                 valor = 0
@@ -957,6 +961,7 @@ class IntrinsicMotivation:
                     "Set": tuple(set_pairs),
                     "Buffer": buffer
                 }
+                #print(sets_and_buffers)
             # Store the task with its index
             data_dict[f"Task_{task_index}"] = {
                 "Coordinates": pair,
@@ -985,10 +990,29 @@ class IntrinsicMotivation:
                         
                         # Store predictive error in the buffer
                         if idx < len(buffer):  # Ensure we don't go out of bounds
-                            buffer[idx] = predictive_error    
+                            buffer[idx] = predictive_error  
+        
+        # List to store the buffers
+        feature_vectors = []
+        
+        # Loop through data_dict to extract only the buffers
+        for task, values in data_dict.items():
+            for policy, policy_data in values["Sets_and_Buffers"].items():
+                buffer = policy_data["Buffer"]
+                feature_vectors.append(buffer)  # Append only the buffer
+        
+        # Convert the list of buffers to a NumPy array
+        tasks_array = np.array(feature_vectors)
+        
+        # Save the NumPy array into a CSV file
+        np.savetxt('tasks_train_dataset.csv', tasks_array, delimiter=',', fmt='%.6f')
+        
+        print("Buffers saved into 'tasks_train_dataset.csv'")
         return data_dict
         
-    
+    def print_task_dict(self):
+        for task, content in self.task_dictionary.items():
+            print(task, content)
        
     def get_best_goal(self):
         best_goal=1
