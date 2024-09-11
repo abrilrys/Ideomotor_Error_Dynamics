@@ -760,17 +760,7 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 
 #robot.hebbianTest(1)
 
-
-def interpolar_coordenadas_prediccion(coord1, coord2, num_intermedios):
-    coordenadas_intermedias = []
-    for i in range(1, num_intermedios):
-        x_inter = coord1[0] + (coord2[0] - coord1[0]) * i / 11
-        y_inter = coord1[1] + (coord2[1] - coord1[1]) * i / 11
-        z_inter = coord1[2] + (coord2[2] - coord1[2]) * i / 11
-        coordenadas_intermedias.append((x_inter, y_inter, z_inter))
-    return coordenadas_intermedias
-
-
+######################################################################################
 
 # Define the dimensions of the SOM
 som_height = somVisual.get_weights().shape[0]  # Number of rows
@@ -902,4 +892,41 @@ for buffer in tasks_array:
     slopes.append(slope)
 
 slopes = np.array(slopes)
-print("Pendientes de las regresiones lineales sobre los buffers:", slopes)
+print("Pendientes de las regresiones lineales sobre los buffers:\n", slopes)
+
+class IntrinsicMotivation:
+    def __init__(self):
+        self.goal=1
+    
+    def get_best_goal(self):
+        best_goal=1
+        return best_goal
+        
+    def get_random_goal(self):
+        random_goal=1
+        return random_goal
+        
+    def change_policy(self):
+        self.goal=1
+		
+    
+class Experiment:
+    
+    def __init__(self, eps, iterations):
+        self.intrinsic_motivation = IntrinsicMotivation()
+        self.eps=eps
+        self.iterations=iterations
+        
+        self.current_goal_idx = -1
+        self.prev_goal_idx = -1
+    
+    def run_exp(self):
+        for _ in range(1, self.iterations):
+            # get the current task using the intrinsic motivation strategy and e-greedy algorithm
+            p = np.random.random() 
+            if p < self.eps: 
+                #select random task
+                self.current_goal_idx = 1 
+            else: 
+                #select best rated task
+                self.current_goal_idx = 1 
