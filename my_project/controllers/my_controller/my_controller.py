@@ -896,11 +896,16 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 
 #######################################################################################
 class IntrinsicMotivation:
+    #self.lengthOfBuffers
+    #self.task_dictionary
+    #self.slopes
+    #self.buffers
+    
     def __init__(self):
         self.lengthOfBuffers=11
         self.task_dictionary=self.initialize_task_dictionary()
         self.slopes=self.get_slopes()
-        #print(self.slopes)
+        #print(self.buffers)
         
     def initialize_task_dictionary(self):
         # Define the dimensions of the SOM
@@ -1000,10 +1005,11 @@ class IntrinsicMotivation:
             for policy, policy_data in values["Sets_and_Buffers"].items():
                 buffer = policy_data["Buffer"]
                 feature_vectors.append(buffer)  # Append only the buffer
+                
+        self.buffers=feature_vectors
         
         # Convert the list of buffers to a NumPy array
         tasks_array = np.array(feature_vectors)
-        
         # Save the NumPy array into a CSV file
         np.savetxt('tasks_train_dataset.csv', tasks_array, delimiter=',', fmt='%.6f')
         
@@ -1013,16 +1019,49 @@ class IntrinsicMotivation:
     def print_task_dict(self):
         for task, content in self.task_dictionary.items():
             print(task, content)
-       
+    
+    def evaluate_buffer(self,buffer, time_points):
+        # Condition 1: Last element of the buffer closest to x axis
+        distance_to_zero = abs(buffer[-1])
+        
+        # Condition 2: Slope of the linear regression (most negative)
+        _, slope = self.estimate_coef(time_points, np.array(buffer))
+        
+        return distance_to_zero, slope
+    
+    def evaluate_all_buffers(self):
+        time_buffer = np.arange(self.lengthOfBuffers)  
+        evaluated_buffers = []
+        
+        buffer_index = 0
+        # Loop through all buffers in the data_dict
+        for task, values in self.task_dictionary.items():
+            for policy, policy_data in values["Sets_and_Buffers"].items():
+                buffer = policy_data["Buffer"]
+                
+                # Evaluate the buffer
+                distance_to_zero, slope = self.evaluate_buffer(buffer, time_buffer)
+                
+                # Store the buffer with its evaluation criteria
+                evaluated_buffers.append((buffer_index, buffer, distance_to_zero, slope))
+                
+                buffer_index += 1
+        # Sort buffers: 
+        # First by distance_to_zero
+        # Then by slope (most negative)
+        evaluated_buffers.sort(key=lambda x: (x[2], x[3]))  # Sort by (distance_to_zero, slope)
+        return evaluated_buffers    
+           
     def get_best_goal(self):
-        best_goal=1
-        return best_goal
+        buffer_sort=self.evaluate_all_buffers()
+        best_goal_idx=buffer_sort[0][0]
+        return best_goal_idx
         
     def get_random_goal(self):
-        random_goal=1
-        return random_goal
+        random_goal_idx=random.randint(0, 39)
+        return random_goal_idx
         
-    def change_policy(self):
+    def change_policy(self, policy_idx):
         self.goal=1
         
     #linear regression
@@ -1080,7 +1119,7 @@ class Experiment:
             p = np.random.random() 
             if p < self.eps: 
                 #select random task
-                self.current_goal_idx = 1 
+                new_task_idx=self.intrinsic_motivation.get_random_goal()
             else: 
                 #select best rated task
-                self.current_goal_idx = 1 
+                new_task_idx=self.intrinsic_motivation.get_best_goal()
