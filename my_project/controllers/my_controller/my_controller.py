@@ -905,6 +905,7 @@ class IntrinsicMotivation:
         self.lengthOfBuffers=11
         self.task_dictionary=self.initialize_task_dictionary()
         self.slopes=self.get_slopes()
+        #self.print_task_dict()
         #print(self.buffers)
         
     def initialize_task_dictionary(self):
@@ -942,9 +943,9 @@ class IntrinsicMotivation:
         lengthOfBuffers = self.lengthOfBuffers
         
         # Populate the dictionary with selected pairs, associated sets, and buffers
-        for task_index, pair in enumerate(selected_pairs, start=1):
+        for task_index, pair in enumerate(selected_pairs, start=0):
             sets_and_buffers = {}
-            for policy_index in range(1, numberOfPolicies + 1):
+            for policy_index in range(0, numberOfPolicies):
                 set_pairs = set()
                 # Add random coordinates not equal to the pair coordinates
                 while len(set_pairs) < lengthOfPolicies:
@@ -957,7 +958,7 @@ class IntrinsicMotivation:
                 #print(set_pairs)
                 # Initialize buffer with zeros
                 buffer = []
-                valor = 0
+                valor = 10
                 while len(buffer) < self.lengthOfBuffers:
                     buffer.append(valor)
                     valor += 10
@@ -1015,7 +1016,47 @@ class IntrinsicMotivation:
         
         print("Buffers saved into 'tasks_train_dataset.csv'")
         return data_dict
+    
+    def update_buffer(self, policy_idx, task_idx):
+        """
+        Updates the buffer for a specific policy in a specific task.
         
+        Parameters:
+        - policy_idx: Index of the policy to update.
+        - task_idx: Index of the task to update.
+        - new_buffer_values: List of new values to replace the buffer.
+        """
+        # Construct the task and policy keys
+        task_key = f"Task_{task_idx}"
+        policy_key = f"Policy_{policy_idx}"
+        
+        # Access the buffer for the specific task and policy
+        buffer = self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"]
+        set_pairs = self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"]
+        
+        coordinates = self.task_dictionary[task_key]["Coordinates"]
+        visual_goal = denormalize_vector(somVisual.get_weights()[coordinates[1][0], coordinates[1][1]], gps_data)
+
+        # Calculate predictive error for each coordinate in set_pairs
+        for idx, coord in enumerate(set_pairs):
+            visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+            motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
+            
+            if motor_angles_coord is not None:
+                rotation_angles = denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
+                
+                # Assume the final goal is the second coordinate of the pair
+                predictive_error = robot.executeMovement(rotation_angles, visual_goal)
+                
+                # Store predictive error in the buffer
+                if idx < len(buffer):  # Ensure we don't go out of bounds
+                    buffer[idx] = predictive_error 
+
+        self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"] = buffer
+        
+        
+
+
     def print_task_dict(self):
         for task, content in self.task_dictionary.items():
             print(task, content)
@@ -1060,9 +1101,69 @@ class IntrinsicMotivation:
     def get_random_goal(self):
         random_goal_idx=random.randint(0, 39)
         return random_goal_idx
+
+    def get_neighbors(self, coord):
+        row, col = coord
+        som_height = somVisual.get_weights().shape[0]  # Number of rows
+        som_width = somVisual.get_weights().shape[1]   # Number of columns
+        neighbors = []
         
-    def change_policy(self, policy_idx):
-        self.goal=1
+        possible_neighbors = [
+            (row - 1, col),       # Up
+            (row + 1, col),       # Down
+            (row, col - 1),       # Left
+            (row, col + 1),       # Right
+            (row - 1, col - 1),   # Top-left
+            (row - 1, col + 1),   # Top-right
+            (row + 1, col - 1),   # Bottom-left
+            (row + 1, col + 1)    # Bottom-right
+        ]
+        
+        for r, c in possible_neighbors:
+            if 0 <= r < som_height and 0 <= c < som_width:
+                neighbors.append((r, c))
+        
+        return neighbors
+
+    def change_policy(self, policy_idx, task_idx, num_coords_change):
+        """
+        Change a specific number of coordinates in the given policy while keeping the first coordinate.
+        
+        Parameters:
+        - policy_idx: Index of the policy to change.
+        - task_idx: Index of the task to which the policy belongs.
+        - num_coords_change: Number of coordinates to change in the policy.
+        """
+        task_key = f"Task_{task_idx}"
+        policy_key = f"Policy_{policy_idx}"
+        
+        buffer = self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"]
+        set_pairs = list(self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"])
+        
+        print(f"Set pairs: {set_pairs}")
+        first_coord = set_pairs[0]
+        
+        coords_to_consider = set_pairs[1:]  # Skip the first coordinate
+        
+        sorted_coords_by_error = sorted(coords_to_consider, key=lambda coord: buffer[set_pairs.index(coord)], reverse=True)
+        
+        for i in range(min(num_coords_change, len(sorted_coords_by_error))):
+            coord_to_change = sorted_coords_by_error[i]
+            
+            neighbors = self.get_neighbors(coord_to_change)
+            #print(f"Neighbors: {neighbors}")
+
+            new_coord = random.choice([n for n in neighbors if n != coord_to_change])
+            
+            set_pairs[set_pairs.index(coord_to_change)] = new_coord
+        
+        set_pairs[0] = first_coord  
+        self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"] = set(set_pairs)
+        print(f"New set pairs: {set_pairs}")
+
+        print(f"Updated policy {policy_idx} for task {task_idx}, keeping the first coordinate unchanged.")
+
+        #self.print_task_dict()
         
     #linear regression
     def estimate_coef(self,x, y):
@@ -1077,7 +1178,15 @@ class IntrinsicMotivation:
         b_1 = SS_xy / SS_xx
         b_0 = m_y - b_1*m_x
         return (b_0, b_1)
+
+    def get_buffer_from_task_policy(self,task_idx, policy_idx):
+        task_key = f"Task_{task_idx}"
+        policy_key = f"Policy_{policy_idx}"
         
+        buffer = self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"]
+        
+        return buffer
+
     def get_slopes(self):
         time_buffer = np.arange(self.lengthOfBuffers)
         # List to store slopes of each buffer
@@ -1101,25 +1210,67 @@ class IntrinsicMotivation:
         return slopes
     
 
-intrin= IntrinsicMotivation()		
+#intrin= IntrinsicMotivation()		
     
 class Experiment:
     
-    def __init__(self, eps, iterations):
+    def __init__(self, eps, duration):
         self.intrinsic_motivation = IntrinsicMotivation()
         self.eps=eps
-        self.iterations=iterations
-        
+        self.duration=duration
+        self.buffer_agent=[]
         self.current_goal_idx = -1
         self.prev_goal_idx = -1
+
+    def get_task_policy_from_index(self, index):
+        # Calculate the task and policy index
+        task_idx = index // 4  
+        policy_idx = index % 4  
+        
+        return task_idx, policy_idx
     
     def run_exp(self):
-        for _ in range(1, self.iterations):
+        start_time = time.time()
+    
+        while time.time() - start_time < self.duration:
+
+            self.prev_goal_idx =self.current_goal_idx
+
             # get the current task using the intrinsic motivation strategy and e-greedy algorithm
             p = np.random.random() 
             if p < self.eps: 
                 #select random task
-                new_task_idx=self.intrinsic_motivation.get_random_goal()
+                self.current_goal_idx=self.intrinsic_motivation.get_random_goal()
+                
+                task_idx, policy_idx=self.get_task_policy_from_index(self.current_goal_idx)
+                #get previous dynamic of said taks and policy
+                prev_din=self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx)
             else: 
                 #select best rated task
-                new_task_idx=self.intrinsic_motivation.get_best_goal()
+                self.current_goal_idx=self.intrinsic_motivation.get_best_goal()
+                task_idx, policy_idx=self.get_task_policy_from_index(self.current_goal_idx)
+                #get previous dynamic of said taks and policy
+                prev_din=np.copy(self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx))
+
+
+            print(f"Previous dynamic: {prev_din}")
+            
+            #modify the policy
+            self.intrinsic_motivation.change_policy(policy_idx, 3, task_idx)
+
+            #update the PE
+            self.intrinsic_motivation.update_buffer(policy_idx, task_idx)
+
+            #get current dynamic of current goal
+            new_din=np.copy(self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx))
+            print(f"New dynamic: {new_din}")
+            
+            #get PE of dynamic
+            mse = np.mean((np.array(prev_din) - np.array(new_din)) ** 2)
+            print(f"Mean Squared Error: {mse}")
+            
+            self.buffer_agent.append(mse)
+            
+exp= Experiment(0.1, 300)
+exp.run_exp()	
+
