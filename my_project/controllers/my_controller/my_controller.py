@@ -9,6 +9,8 @@ import minisom
 from minisom import MiniSom
 import array
 import math
+import json
+import os
 
 
 class HebbianTable:
@@ -408,6 +410,12 @@ class Nao (Robot):
             #print("Prediction error: ", pred_error)
             break
         return pred_error
+
+    def MoveArm(self, rotation_angles):
+        while robot.step(self.timeStep) != -1:
+            # Set the random angles using the function
+            self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
+            break
         
     def hebbianTrain(self):
         random.seed(10)
@@ -956,7 +964,7 @@ class IntrinsicMotivation:
                 set_pairs = list(set_pairs)
                 set_pairs.insert(0, pair[0])
                 #print(set_pairs)
-                # Initialize buffer with zeros
+                # Initialize buffer with increasing values
                 buffer = []
                 valor = 10
                 while len(buffer) < self.lengthOfBuffers:
@@ -1061,17 +1069,17 @@ class IntrinsicMotivation:
         for task, content in self.task_dictionary.items():
             print(task, content)
     
-    def evaluate_buffer(self,buffer, time_points):
+    def evaluate_buffer(self,buffer):
+        time_buffer = np.arange(self.lengthOfBuffers) 
         # Condition 1: Last element of the buffer closest to x axis
         distance_to_zero = abs(buffer[-1])
         
         # Condition 2: Slope of the linear regression (most negative)
-        _, slope = self.estimate_coef(time_points, np.array(buffer))
+        _, slope = self.estimate_coef(time_buffer, np.array(buffer))
         
         return distance_to_zero, slope
     
     def evaluate_all_buffers(self):
-        time_buffer = np.arange(self.lengthOfBuffers)  
         evaluated_buffers = []
         
         buffer_index = 0
@@ -1081,7 +1089,7 @@ class IntrinsicMotivation:
                 buffer = policy_data["Buffer"]
                 
                 # Evaluate the buffer
-                distance_to_zero, slope = self.evaluate_buffer(buffer, time_buffer)
+                distance_to_zero, slope = self.evaluate_buffer(buffer)
                 
                 # Store the buffer with its evaluation criteria
                 evaluated_buffers.append((buffer_index, buffer, distance_to_zero, slope))
@@ -1231,7 +1239,9 @@ class Experiment:
     
     def run_exp(self):
         start_time = time.time()
-    
+        
+        it=0
+        buffer_time=[]
         while time.time() - start_time < self.duration:
 
             self.prev_goal_idx =self.current_goal_idx
@@ -1256,7 +1266,7 @@ class Experiment:
             print(f"Previous dynamic: {prev_din}")
             
             #modify the policy
-            self.intrinsic_motivation.change_policy(policy_idx, 3, task_idx)
+            self.intrinsic_motivation.change_policy(policy_idx, task_idx,3 )
 
             #update the PE
             self.intrinsic_motivation.update_buffer(policy_idx, task_idx)
@@ -1271,6 +1281,222 @@ class Experiment:
             
             self.buffer_agent.append(mse)
             
-exp= Experiment(0.1, 300)
+            buffer_time.append(it)
+            print(f"buffer time: {buffer_time}")
+            it=it+1
+            
+            b0, b1=self.intrinsic_motivation.estimate_coef(np.array(buffer_time), np.array(self.buffer_agent))
+            print(f"Agent behaviour: b0= {b0}, b1= {b1}")
+            
+            #check if the task is learnt
+            evaluation_buffer=self.intrinsic_motivation.evaluate_buffer(new_din)
+            if evaluation_buffer[0]<0.1 and evaluation_buffer[1]<0:
+                print("task learnt")
+                self.save_policy_to_json("learnt_policies.json",task_idx, policy_idx, self.intrinsic_motivation.task_dictionary)
+                #self.remove_learned_task(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
+
+    
+    def save_policy_to_json(self,file_name, task_idx, policy_idx, task_dictionary):
+        """
+        Save a specific policy's coordinates and set of coordinates to a JSON file.
+        
+        Parameters:
+        - file_name: Name of the JSON file to save to.
+        - task_idx: The index of the task.
+        - policy_idx: The index of the policy within the task.
+        - task_dictionary: The task dictionary containing the task and policy data.
+        """
+        task_key = f"Task_{task_idx}"
+        policy_key = f"Policy_{policy_idx}"
+        
+        policy_data = task_dictionary[task_key]["Sets_and_Buffers"][policy_key]
+        
+        coordinates = task_dictionary[task_key]["Coordinates"]
+        
+        # Structure the data
+        policy_to_save = {
+            "Coordinates": coordinates,
+            "SetPairs": list(policy_data["Set"]),  # Convert set to a list for JSON compatibility
+        }
+        
+        if os.path.exists(file_name):
+            with open(file_name, 'r') as json_file:
+                all_policies = json.load(json_file)
+
+        else:
+            all_policies = []  
+        
+        # Add the new policy to the list of all policies
+        all_policies.append(policy_to_save)
+        
+        with open(file_name, 'w') as json_file:
+            json.dump(all_policies, json_file, indent=4)
+        
+        print(f"Policy from task {coordinates} saved to {file_name}.")
+
+    def load_all_policies_from_json(self,file_name):
+        """
+        Load all policies from a JSON file.
+        
+        Parameters:
+        - file_name: The name of the JSON file to load from.
+        
+        Returns:
+        - all_policies: A list of dictionaries, each representing a saved policy.
+        """
+        with open(file_name, 'r') as json_file:
+            all_policies = json.load(json_file)
+        
+        print(f"{len(all_policies)} policies loaded from {file_name}.")
+        return all_policies
+
+    def execute_loaded_policies(self, file_name):
+        """
+        Load and execute each policy from a JSON file.
+        
+        Parameters:
+        - file_name: The name of the JSON file to load from.
+        """
+        all_policies = self.load_all_policies_from_json(file_name)
+        
+        for policy in all_policies:
+            coordinates = policy["Coordinates"]
+            set_pairs = policy["SetPairs"]
+
+            set_pairs = list(set_pairs)[1:]  # Skip the first element
+            
+            merged_coordinates = [coordinates[0], coordinates[1]] + set_pairs
+            
+            print("Executing Task Policy")
+            print("Coordinates:", coordinates)
+            print("Set Pairs:", set_pairs)
+
+            print(merged_coordinates)
+            for idx, coord in enumerate(merged_coordinates):
+                     visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                     motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
+                    
+                     if motor_angles_coord is not None:
+                         rotation_angles = denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
+                        
+                         robot.MoveArm(rotation_angles)
+
+    def remove_learned_task(self, task_idx, task_dictionary, json_file):
+        """
+        Remove a learned task from the task_dictionary and replace it with a new task.
+        The new task must have a unique pair of coordinates not present in the dictionary or JSON file.
+        
+        Parameters:
+        - task_idx: The index of the learned task to be removed.
+        - task_dictionary: The dictionary holding the tasks and their policies.
+        - json_file: The file where the tasks are saved to ensure unique coordinates.
+        """
+        # Remove the task from the task_dictionary
+        task_key = f"Task_{task_idx}"
+        if task_key in task_dictionary:
+            del task_dictionary[task_key]
+            print(f"Task {task_idx} removed from the dictionary.")
+        else:
+            print(f"Task {task_idx} not found in the dictionary.")
+            return
+
+        # Load all existing coordinates from the JSON file to avoid duplicates
+        existing_coordinates = set()
+        if os.path.exists(json_file):
+            with open(json_file, 'r') as file:
+                saved_policies = json.load(file)
+                for policy in saved_policies:
+                    existing_coordinates.add(tuple(policy["Coordinates"][0]))  # Add both task coordinates
+                    existing_coordinates.add(tuple(policy["Coordinates"][1]))
+                    for coord in policy["SetPairs"]:
+                        existing_coordinates.add(tuple(coord))
+
+        # Also collect all coordinates from the task dictionary to avoid duplicates
+        for task, values in task_dictionary.items():
+            existing_coordinates.add(tuple(values["Coordinates"][0]))
+            existing_coordinates.add(tuple(values["Coordinates"][1]))
+            for policy, policy_data in values["Sets_and_Buffers"].items():
+                for coord in policy_data["Set"]:
+                    existing_coordinates.add(tuple(coord))
+
+        # Generate new unique coordinates for the new task
+        new_task_coordinates = self.generate_unique_coordinates(existing_coordinates)
+
+        # Add the new task to the dictionary
+        self.add_new_task_to_dictionary(task_dictionary, new_task_coordinates, task_idx)
+
+    def generate_unique_coordinates(self,existing_coordinates):
+        """
+        Generate a unique pair of coordinates not present in the existing_coordinates set.
+        
+        Parameters:
+        - existing_coordinates: A set containing coordinates that must be avoided.
+        
+        Returns:
+        - A new unique pair of coordinates.
+        """
+        som_height = somVisual.get_weights().shape[0]  
+        som_width = somVisual.get_weights().shape[1]
+
+        while True:
+            coord1 = (random.randint(0, som_height - 1), random.randint(0, som_width - 1))
+            coord2 = (random.randint(0, som_height - 1), random.randint(0, som_width - 1))
+
+            if coord1 != coord2 and coord1 not in existing_coordinates and coord2 not in existing_coordinates:
+                return [coord1, coord2]
+
+    def add_new_task_to_dictionary(self,task_dictionary, coordinates, task_idx):
+        """
+        Add a new task with a set of policies to the task_dictionary.
+        
+        Parameters:
+        - task_dictionary: The dictionary to which the new task will be added.
+        - coordinates: The new pair of task coordinates.
+        """
+        task_key = f"Task_{task_idx}"
+
+        # Initialize the new task with its coordinates
+        numberOfPolicies = 4
+        lengthOfPolicies = 10
+        lengthOfBuffers = self.intrinsic_motivation.lengthOfBuffers
+        new_task_data = {
+            "Coordinates": coordinates,
+            "Sets_and_Buffers": {}
+        }
+
+        # Add 4 policies with random set_pairs and buffers
+        for policy_idx in range(1, numberOfPolicies + 1):
+            set_pairs = set()
+
+            # Add random coordinates not equal to the task coordinates
+            while len(set_pairs) < lengthOfPolicies:
+                random_coord = (random.randint(0, somVisual.get_weights().shape[0] - 1), random.randint(0, somVisual.get_weights().shape[1] - 1))
+                if random_coord != coordinates[0] and random_coord != coordinates[1]:
+                    set_pairs.add(random_coord)
+
+            # Initialize buffer with increasing values
+            buffer = []
+            valor = 10
+            while len(buffer) < lengthOfBuffers:
+                buffer.append(valor)
+                valor += 10
+
+            policy_key = f"Policy_{policy_idx}"
+
+            new_task_data["Sets_and_Buffers"][policy_key] = {
+                "Set": set_pairs,
+                "Buffer": buffer
+            }
+
+        # Add the new task to the dictionary
+        task_dictionary[task_key] = new_task_data
+        print(f"New Task {task_idx} added to the dictionary with coordinates: {coordinates}")
+
+
+
+            
+            
+exp= Experiment(0.1, 60)
 exp.run_exp()	
+exp.execute_loaded_policies("learnt_policies.json")
 
