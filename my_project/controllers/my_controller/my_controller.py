@@ -1238,6 +1238,9 @@ class Experiment:
         return task_idx, policy_idx
     
     def run_exp(self):
+
+        self.clear_previous_file("task_dictionary.txt")
+
         start_time = time.time()
         
         it=0
@@ -1288,12 +1291,15 @@ class Experiment:
             b0, b1=self.intrinsic_motivation.estimate_coef(np.array(buffer_time), np.array(self.buffer_agent))
             print(f"Agent behaviour: b0= {b0}, b1= {b1}")
             
+            
             #check if the task is learnt
             evaluation_buffer=self.intrinsic_motivation.evaluate_buffer(new_din)
             if evaluation_buffer[0]<0.1 and evaluation_buffer[1]<0:
                 print("task learnt")
                 self.save_policy_to_json("learnt_policies.json",task_idx, policy_idx, self.intrinsic_motivation.task_dictionary)
-                #self.remove_learned_task(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
+                self.remove_learned_task(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
+
+            self.save_task_dictionary_to_txt(self.intrinsic_motivation.task_dictionary, "task_dictionary.txt", it)
 
     
     def save_policy_to_json(self,file_name, task_idx, policy_idx, task_dictionary):
@@ -1452,6 +1458,7 @@ class Experiment:
         Parameters:
         - task_dictionary: The dictionary to which the new task will be added.
         - coordinates: The new pair of task coordinates.
+        - task_idx: The task index of the new task.
         """
         task_key = f"Task_{task_idx}"
 
@@ -1474,6 +1481,9 @@ class Experiment:
                 if random_coord != coordinates[0] and random_coord != coordinates[1]:
                     set_pairs.add(random_coord)
 
+            set_pairs = list(set_pairs)
+            set_pairs.insert(0, coordinates[0])
+
             # Initialize buffer with increasing values
             buffer = []
             valor = 10
@@ -1491,6 +1501,61 @@ class Experiment:
         # Add the new task to the dictionary
         task_dictionary[task_key] = new_task_data
         print(f"New Task {task_idx} added to the dictionary with coordinates: {coordinates}")
+
+    import json
+
+    def save_task_dictionary_to_txt(self, task_dictionary, file_name, iteration):
+        """
+        Save the task_dictionary to a text file.
+        
+        Parameters:
+        - task_dictionary: The dictionary to be saved in the file.
+        - file_name: The name of the text file.
+        - iteration: The iteration the simulation is currently at.
+        """
+
+        dict_copy = self.json_serializable_copy(task_dictionary)
+
+        try:
+            with open(file_name, 'a') as file:
+                file.write(f"\n\n### Iteration {iteration} ###\n")
+
+                json.dump(dict_copy, file, indent=4)
+                print(f"Task dictionary saved successfully to {file_name}.")
+        except Exception as e:
+            print(f"Error saving task dictionary: {e}")
+
+    def json_serializable_copy(self, data):
+        """
+        Recursively convert sets to lists in the dictionary to make it JSON serializable.
+        
+        Parameters:
+        - data: The input data.
+        
+        Returns:
+        - A new dictionary with sets converted to lists.
+        """
+        if isinstance(data, dict):
+            return {key: self.json_serializable_copy(value) for key, value in data.items()}
+        elif isinstance(data, set):
+            return list(data)  
+        elif isinstance(data, list):
+            return [self.json_serializable_copy(item) for item in data]
+        else:
+            return data  
+    
+    def clear_previous_file(self, file_name):
+        """
+        Delete the file if it exists
+        
+        Parameters:
+        - file_name: The name of the text file (default is 'task_dictionary_debug.txt').
+        """
+        if os.path.exists(file_name):
+            os.remove(file_name)
+            print(f"{file_name} has been deleted to start a fresh simulation.")
+        else:
+            print(f"{file_name} does not exist, starting fresh.")
 
 
 
