@@ -1361,7 +1361,7 @@ class Experiment:
         Load and execute each policy from a JSON file.
         
         Parameters:
-        - file_name: The name of the JSON file to load from.
+            - file_name: The name of the JSON file to load from.
         """
         all_policies = self.load_all_policies_from_json(file_name)
         
@@ -1448,7 +1448,7 @@ class Experiment:
             coord1 = (random.randint(0, som_height - 1), random.randint(0, som_width - 1))
             coord2 = (random.randint(0, som_height - 1), random.randint(0, som_width - 1))
 
-            if coord1 != coord2 and coord1 not in existing_coordinates and coord2 not in existing_coordinates:
+            if coord1 != coord2 and not coord1 in existing_coordinates and not coord2 in existing_coordinates:
                 return [coord1, coord2]
 
     def add_new_task_to_dictionary(self,task_dictionary, coordinates, task_idx):
@@ -1472,7 +1472,7 @@ class Experiment:
         }
 
         # Add 4 policies with random set_pairs and buffers
-        for policy_idx in range(1, numberOfPolicies + 1):
+        for policy_idx in range(0, numberOfPolicies):
             set_pairs = set()
 
             # Add random coordinates not equal to the task coordinates
@@ -1502,16 +1502,14 @@ class Experiment:
         task_dictionary[task_key] = new_task_data
         print(f"New Task {task_idx} added to the dictionary with coordinates: {coordinates}")
 
-    import json
-
     def save_task_dictionary_to_txt(self, task_dictionary, file_name, iteration):
         """
         Save the task_dictionary to a text file.
         
         Parameters:
-        - task_dictionary: The dictionary to be saved in the file.
-        - file_name: The name of the text file.
-        - iteration: The iteration the simulation is currently at.
+            - task_dictionary: The dictionary to be saved in the file.
+            - file_name: The name of the text file.
+            - iteration: The iteration the simulation is currently at.
         """
 
         dict_copy = self.json_serializable_copy(task_dictionary)
