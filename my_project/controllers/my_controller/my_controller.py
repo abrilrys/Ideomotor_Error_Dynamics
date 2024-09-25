@@ -954,14 +954,14 @@ class IntrinsicMotivation:
         for task_index, pair in enumerate(selected_pairs, start=0):
             sets_and_buffers = {}
             for policy_index in range(0, numberOfPolicies):
-                set_pairs = set()
+                set_pairs = []
                 # Add random coordinates not equal to the pair coordinates
                 while len(set_pairs) < lengthOfPolicies:
                     random_coord = random.choice(all_coordinates)
                     if random_coord != pair[0] and random_coord != pair[1]:
-                        set_pairs.add(random_coord)
+                        set_pairs.append(random_coord)
                         
-                set_pairs = list(set_pairs)
+                
                 set_pairs.insert(0, pair[0])
                 #print(set_pairs)
                 # Initialize buffer with increasing values
@@ -1166,7 +1166,7 @@ class IntrinsicMotivation:
             set_pairs[set_pairs.index(coord_to_change)] = new_coord
         
         set_pairs[0] = first_coord  
-        self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"] = set(set_pairs)
+        self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"] = set_pairs
         print(f"New set pairs: {set_pairs}")
 
         print(f"Updated policy {policy_idx} for task {task_idx}, keeping the first coordinate unchanged.")
@@ -1240,6 +1240,7 @@ class Experiment:
     def run_exp(self):
 
         self.clear_previous_file("task_dictionary.txt")
+        self.clear_previous_file("learnt_policies.json")
 
         start_time = time.time()
         
@@ -1268,12 +1269,16 @@ class Experiment:
 
             print(f"Previous dynamic: {prev_din}")
             
+            
+           
             #modify the policy
             self.intrinsic_motivation.change_policy(policy_idx, task_idx,3 )
-
+            
+            
             #update the PE
             self.intrinsic_motivation.update_buffer(policy_idx, task_idx)
-
+            
+           
             #get current dynamic of current goal
             new_din=np.copy(self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx))
             print(f"New dynamic: {new_din}")
@@ -1287,11 +1292,11 @@ class Experiment:
             buffer_time.append(it)
             print(f"buffer time: {buffer_time}")
             it=it+1
+           
             
             b0, b1=self.intrinsic_motivation.estimate_coef(np.array(buffer_time), np.array(self.buffer_agent))
             print(f"Agent behaviour: b0= {b0}, b1= {b1}")
-            
-            
+          
             #check if the task is learnt
             evaluation_buffer=self.intrinsic_motivation.evaluate_buffer(new_din)
             if evaluation_buffer[0]<0.1 and evaluation_buffer[1]<0:
@@ -1338,7 +1343,7 @@ class Experiment:
         with open(file_name, 'w') as json_file:
             json.dump(all_policies, json_file, indent=4)
         
-        print(f"Policy from task {coordinates} saved to {file_name}.")
+        print(f"Policy {policy_data['Set']} from task {coordinates} saved to {file_name}.")
 
     def load_all_policies_from_json(self,file_name):
         """
