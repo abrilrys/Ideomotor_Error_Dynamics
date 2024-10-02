@@ -413,7 +413,7 @@ class Nao (Robot):
 
     def MoveArm(self, rotation_angles):
         while robot.step(self.timeStep) != -1:
-            # Set the random angles using the function
+            time.sleep(1)
             self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
             break
         
@@ -1068,16 +1068,60 @@ class IntrinsicMotivation:
     def print_task_dict(self):
         for task, content in self.task_dictionary.items():
             print(task, content)
+
+    def get_min_distance_to_neighbors(self, node_coord):
+        """
+        Calculate the minimum Euclidean distance between a node in the SOM and its neighbors.
+        
+        Parameters:
+        - node_coord: A tuple (x, y) representing the coordinates of the node.
+        
+        Returns:
+        - The minimum distance between the node and its neighbors.
+        """
+        som_height= somVisual.get_weights().shape[0] 
+        som_width = somVisual.get_weights().shape[1]
+
+        som_weights=somVisual.get_weights()
+        x, y = node_coord
+        
+        # List of relative positions of 8 neighbors
+        neighbor_offsets = [
+            (-1, -1), (-1, 0), (-1, 1),  
+            (0, -1),          (0, 1),   
+            (1, -1), (1, 0), (1, 1)     
+        ]
+        
+        min_distance = float('inf')
+
+        node_vector = som_weights[x, y]
+        
+        for offset in neighbor_offsets:
+            neighbor_x, neighbor_y = x + offset[0], y + offset[1]
+            
+            # Ensure the neighbor is within the bounds of the SOM grid
+            if 0 <= neighbor_x < som_height and 0 <= neighbor_y < som_width:
+                neighbor_vector = som_weights[neighbor_x, neighbor_y]
+                # Calculate the Euclidean distance to the neighbor
+                distance = np.linalg.norm(node_vector - neighbor_vector)
+
+                if distance < min_distance:
+                    min_distance = distance
+        
+        return min_distance
     
     def evaluate_buffer(self,buffer):
         time_buffer = np.arange(self.lengthOfBuffers) 
-        # Condition 1: Last element of the buffer closest to x axis
+        # Condition 1: Last element of the buffer close to x axis
         distance_to_zero = abs(buffer[-1])
         
         # Condition 2: Slope of the linear regression (most negative)
         _, slope = self.estimate_coef(time_buffer, np.array(buffer))
+
+        # Condition 3: Verify if the buffer is strictly decreasing 
+        is_decreasing = all(buffer[i] >= buffer[i+1] for i in range(len(buffer)-1))
         
-        return distance_to_zero, slope
+        return distance_to_zero, slope, is_decreasing
     
     def evaluate_all_buffers(self):
         evaluated_buffers = []
@@ -1089,7 +1133,7 @@ class IntrinsicMotivation:
                 buffer = policy_data["Buffer"]
                 
                 # Evaluate the buffer
-                distance_to_zero, slope = self.evaluate_buffer(buffer)
+                distance_to_zero, slope,_ = self.evaluate_buffer(buffer)
                 
                 # Store the buffer with its evaluation criteria
                 evaluated_buffers.append((buffer_index, buffer, distance_to_zero, slope))
@@ -1186,6 +1230,13 @@ class IntrinsicMotivation:
         b_1 = SS_xy / SS_xx
         b_0 = m_y - b_1*m_x
         return (b_0, b_1)
+    
+    def get_goal_from_task(self,task_idx):
+        task_key = f"Task_{task_idx}"
+        
+        goal = self.task_dictionary[task_key]["Coordinates"][1]
+        
+        return goal
 
     def get_buffer_from_task_policy(self,task_idx, policy_idx):
         task_key = f"Task_{task_idx}"
@@ -1258,7 +1309,7 @@ class Experiment:
                 
                 task_idx, policy_idx=self.get_task_policy_from_index(self.current_goal_idx)
                 #get previous dynamic of said taks and policy
-                prev_din=self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx)
+                prev_din=np.copy(self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx))
             else: 
                 #select best rated task
                 self.current_goal_idx=self.intrinsic_motivation.get_best_goal()
@@ -1299,7 +1350,10 @@ class Experiment:
           
             #check if the task is learnt
             evaluation_buffer=self.intrinsic_motivation.evaluate_buffer(new_din)
-            if evaluation_buffer[0]<0.1 and evaluation_buffer[1]<0:
+            goal_task=self.intrinsic_motivation.get_goal_from_task(task_idx)
+            min_distance_to_neighbors=self.intrinsic_motivation.get_min_distance_to_neighbors(tuple(goal_task))
+            #print("min_distance_to_neighbors > ", min_distance_to_neighbors)
+            if evaluation_buffer[0]<min_distance_to_neighbors and evaluation_buffer[1]<0 and evaluation_buffer[2]:
                 print("task learnt")
                 self.save_policy_to_json("learnt_policies.json",task_idx, policy_idx, self.intrinsic_motivation.task_dictionary)
                 self.remove_learned_task(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
@@ -1321,7 +1375,7 @@ class Experiment:
         policy_key = f"Policy_{policy_idx}"
         
         policy_data = task_dictionary[task_key]["Sets_and_Buffers"][policy_key]
-        
+
         coordinates = task_dictionary[task_key]["Coordinates"]
         
         # Structure the data
@@ -1389,7 +1443,7 @@ class Experiment:
                     
                      if motor_angles_coord is not None:
                          rotation_angles = denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
-                        
+                         
                          robot.MoveArm(rotation_angles)
 
     def remove_learned_task(self, task_idx, task_dictionary, json_file):
@@ -1564,7 +1618,7 @@ class Experiment:
 
             
             
-exp= Experiment(0.1, 60)
-exp.run_exp()	
+exp= Experiment(0.1, 300)
+#exp.run_exp()	
 exp.execute_loaded_policies("learnt_policies.json")
 
