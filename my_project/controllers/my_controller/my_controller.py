@@ -397,7 +397,10 @@ class Nao (Robot):
             
             else:
                 print("BMU SOM 1: ", hebbian_table.getConectionsFromSOM2(motor_entry))
-        
+    
+    def distancia_euclidiana(self, coord1, coord2):
+        return math.sqrt(sum((c1 - c2)**2 for c1, c2 in zip(coord1, coord2)))
+
     def executeMovement(self, rotation_angles, target_coordinate):
         while robot.step(self.timeStep) != -1:
             # Set the random angles using the function
@@ -406,7 +409,7 @@ class Nao (Robot):
             time.sleep(0.002)
             gps_entry = self.getRelativeCoords()
             # Calculate predictive error between current position and target
-            pred_error = np.linalg.norm(np.array(gps_entry) - np.array(target_coordinate))
+            pred_error = self.distancia_euclidiana(np.array(gps_entry), np.array(target_coordinate))
             #print("Prediction error: ", pred_error)
             break
         return pred_error
@@ -985,15 +988,18 @@ class IntrinsicMotivation:
         # Calculate predictive error and update the buffer
         for task, values in data_dict.items():
             pair = values["Coordinates"]
-            visual_goal = denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]], gps_data)
-            
+            #visual_goal = denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]], gps_data)
+            visual_goal = somVisual.get_weights()[pair[1][0], pair[1][1]]
+
             for policy, policy_data in values["Sets_and_Buffers"].items():
                 set_pairs = policy_data["Set"]
                 buffer = policy_data["Buffer"]
                 
                 # Calculate predictive error for each coordinate in set_pairs
                 for idx, coord in enumerate(set_pairs):
-                    visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                    #visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                    visual_input = somVisual.get_weights()[coord[0], coord[1]]
+
                     motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
                     
                     if motor_angles_coord is not None:
@@ -1341,7 +1347,7 @@ class Experiment:
             self.buffer_agent.append(mse)
             
             buffer_time.append(it)
-            print(f"buffer time: {buffer_time}")
+            #print(f"buffer time: {buffer_time}")
             it=it+1
            
             
@@ -1382,6 +1388,7 @@ class Experiment:
         policy_to_save = {
             "Coordinates": coordinates,
             "SetPairs": list(policy_data["Set"]),  # Convert set to a list for JSON compatibility
+            "BufferOfPE": list(policy_data["Buffer"]),
         }
         
         if os.path.exists(file_name):
@@ -1618,7 +1625,8 @@ class Experiment:
 
             
             
-exp= Experiment(0.1, 300)
-#exp.run_exp()	
-exp.execute_loaded_policies("learnt_policies.json")
+exp= Experiment(0.1, 500)
+exp.run_exp()	
+if os.path.exists("learnt_policies.json"):
+    exp.execute_loaded_policies("learnt_policies.json")
 
