@@ -282,7 +282,7 @@ class Nao (Robot):
       
 
     def printGps(self):
-        p = self.gps.getValues()
+        p = self.getRelativeCoords()
         print('----------gps----------')
         print('position: [ x y z ] = [%f %f %f]' % (p[0], p[1], p[2]))
 
@@ -383,15 +383,19 @@ class Nao (Robot):
             self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
             
             motor_entry = [randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
+
             # Get GPS data
             gps_entry = self.getRelativeCoords()
             #print(gps_entry)
+
+            time.sleep(1)
+
             #normalize
             motor_entry= min_max_normalize_with_data(motor_entry, motor_data)
             gps_entry= min_max_normalize_with_data(gps_entry, gps_data)
             #print(gps_entry)
             
-            time.sleep(1)
+            
             if choice == 1 :
                 print("BMU SOM 2: ", hebbian_table.getConectionsFromSOM1(gps_entry))
             
@@ -406,18 +410,32 @@ class Nao (Robot):
             # Set the random angles using the function
             self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
             # Get GPS data
-            time.sleep(0.002)
             gps_entry = self.getRelativeCoords()
+
+            time.sleep(0.002)
             # Calculate predictive error between current position and target
             pred_error = self.distancia_euclidiana(np.array(gps_entry), np.array(target_coordinate))
             #print("Prediction error: ", pred_error)
             break
         return pred_error
 
+    def getRealGoalCoords(self, target_coordinate):
+        while robot.step(self.timeStep) != -1:
+            motor_angles_coord = hebbian_table.getConectionsFromSOM1(target_coordinate)
+                    
+            if motor_angles_coord is not None:
+                rotation_angles = denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
+                self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])    
+            
+            real_coord = self.getRelativeCoords()
+
+            time.sleep(0.002)
+            return real_coord
+
     def MoveArm(self, rotation_angles):
         while robot.step(self.timeStep) != -1:
-            time.sleep(1)
             self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
+            time.sleep(1)
             break
         
     def hebbianTrain(self):
@@ -459,16 +477,19 @@ class Nao (Robot):
             self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
             
             motor_entry = [randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
+
             # Get GPS data
             gps_entry = self.getRelativeCoords()
-            
-            #normalize
-            motor_entry= min_max_normalize_with_data(motor_entry, motor_data)
-            gps_entry= min_max_normalize_with_data(gps_entry, gps_data)
             
             print("Iteration "+ str(i)+ "\t")
             print("Waiting for 0.002s \t")
             time.sleep(0.002)
+
+            #normalize
+            motor_entry= min_max_normalize_with_data(motor_entry, motor_data)
+            gps_entry= min_max_normalize_with_data(gps_entry, gps_data)
+            
+            
             hebbian_table.learnUsingWinners(gps_entry, motor_entry)
             
             i += 1
@@ -546,11 +567,6 @@ class Nao (Robot):
                     print(f"Error at iteration {i}: {e}")
                     break
                
-
-
-somAngles = None
-somVisual = None
-somTasks = None
 
 #denormalize a vector given dataset
 def denormalize_vector(normalized_vector, data):
@@ -714,196 +730,8 @@ def generateTaskSOM():
         pickle.dump(somTasks, outfile)
         
 
-# create the Robot instance and run main loop
-robot = Nao()
-#robot.run()
-
-####train data
-motor_data = []
-gps_data = []
-
-# Leer los datos del motor del CSV
-with open("motor_angles.csv", "r", newline='') as motor_csvfile:
-    motor_reader = csv.reader(motor_csvfile)
-   
-    for row in motor_reader:
-        motor_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
-    
-# Leer los datos del GPS del CSV
-with open("gps_hand.csv", "r", newline='') as gps_csvfile:
-    gps_reader = csv.reader(gps_csvfile)
-   
-    for row in gps_reader:
-        gps_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
-            
-####
-#print(motor_data)
-
-    
-#####train SOMS
-#generateAnglesSOM()
-#generateVisualSOM()
-
-#####load SOMS           
-with open('somVisual.p', 'rb') as infile:
-    somVisual = pickle.load(infile)
-
-with open('somAngles.p', 'rb') as infile:
-    somAngles = pickle.load(infile)
-
-#####train hebbian table
-#hebbian_table = HebbianTable()
-#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
-
-#robot.hebbianTrain()
-#hebbian_table.saveTable("hebbian_table_new.txt")
 
 
-
-#####load hebbian table
-    
-# Crear una instancia de HebbianTable
-hebbian_table = HebbianTable()
-# Inicializar la tabla Hebbiana con las SOMs y un factor de aprendizaje
-hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
-
-hebbian_table.loadFromFile("hebbian_table_new.txt")
-
-#robot.hebbianTest(1)
-
-######################################################################################
-
-# # Define the dimensions of the SOM
-# som_height = somVisual.get_weights().shape[0]  # Number of rows
-# som_width = somVisual.get_weights().shape[1]   # Number of columns
-
-# # Generate all possible coordinates
-# all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
-
-# # Shuffle the list of coordinates
-# random.shuffle(all_coordinates)
-
-# # Select 10 unique pairs of coordinates without repetition
-# selected_pairs = []
-# selected_pairs_count = 0
-
-# numberOfTasks = 10
-
-# while selected_pairs_count < numberOfTasks:
-#     # Select two random coordinates
-#     coord1 = random.choice(all_coordinates)
-#     coord2 = random.choice(all_coordinates)
-    
-#     # Ensure the pair is unique and not repeated
-#     if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
-#         selected_pairs.append((coord1, coord2))
-#         selected_pairs_count += 1
-
-# # Create a dictionary to store the data
-# data_dict = {}
-
-# numberOfPolicies = 4
-# lengthOfPolicies = 10
-# lengthOfBuffers = 10
-
-# # Populate the dictionary with selected pairs, associated sets, and buffers
-# for pair in selected_pairs:
-#     sets_and_buffers = {}
-#     for i in range(numberOfPolicies):
-#         set_pairs = set()
-#         # Add random coordinates not equal to the pair coordinates
-#         while len(set_pairs) < lengthOfPolicies:
-#             random_coord = random.choice(all_coordinates)
-#             if random_coord != pair[0] and random_coord != pair[1]:
-#                 set_pairs.add(random_coord)
-#         # Initialize buffer with zeros
-#         buffer = []
-#         valor = 0
-#         while len(buffer) < lengthOfBuffers:
-#             buffer.append(valor)
-#             valor += 10
-#         #print(buffer)
-#         sets_and_buffers[tuple(set_pairs)] = buffer
-#     data_dict[pair] = {"Sets_and_Buffers": sets_and_buffers}
-
-
-# #for pair, values in data_dict.items():
-#  #   print("Pair:", pair)
-#   #  print("Associated Sets and Buffers:")
-#    # for set_pairs, buffer in values["Sets_and_Buffers"].items():
-#     #    print("Set:", set_pairs)
-#      #   print("Associated Buffer:", buffer)
-#       #  print()
-#     #print()  
-    
-
-# for pair, values in data_dict.items():
-#     visual_goal= denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]],gps_data)
-#     for set_pairs, buffer in values["Sets_and_Buffers"].items():
-#         # Calculate predictive error for each coordinate in set_pairs
-#         for idx, coord in enumerate(set_pairs):
-#             visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
-#             motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
-#             #print(visual_input)
-            
-            
-#             #print(motor_angles_coord)
-#             if motor_angles_coord != None:
-#                 rotation_angles=denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]],motor_data)
-#                 #print(rotation_angles)
-                
-#                 # Assume the final goal is the second coordinate of the pair
-#                 predictive_error = robot.executeMovement(rotation_angles, visual_goal)
-#                 # Store predictive error in the buffer
-#                 if idx < len(buffer):  # Ensure we don't go out of bounds
-#                     buffer[idx] = predictive_error
-    
-
-
-    
-# #Get the vector to train tasks som
-# feature_vectors = []
-
-# for pair, values in data_dict.items():
-#     for set_pairs, buffer in values["Sets_and_Buffers"].items():
-#         feature_vectors.append(buffer)
-
-# # Convert to numpy array
-# tasks_array = np.array(feature_vectors)
-
-# # Save into CSV file
-# np.savetxt('tasks_train_dataset.csv', tasks_array, delimiter=',', fmt='%.6f')
-
-# ########TRAIN TASK SOM    
-# generateTaskSOM()  
-
-# #linear regression
-# def estimate_coef(x, y):
-#     n = np.size(x)
-#     #mean of x and y vector
-#     m_x = np.mean(x)
-#     m_y = np.mean(y)
-    
-#     SS_xy = np.sum(y*x) - n*m_y*m_x
-#     SS_xx = np.sum(x*x) - n*m_x*m_x
-    
-#     b_1 = SS_xy / SS_xx
-#     b_0 = m_y - b_1*m_x
-#     return (b_0, b_1)
-    
-
-# time_buffer = np.arange(tasks_array.shape[1])
-
-# #get the slopes for each error buffer
-# slopes = []
-
-# for buffer in tasks_array:
-#     lin_reg=estimate_coef(time_buffer, buffer)
-#     slope = lin_reg[1]
-#     slopes.append(slope)
-
-# slopes = np.array(slopes)
-# print("Pendientes de las regresiones lineales sobre los buffers:\n", slopes)
 
 #######################################################################################
 class IntrinsicMotivation:
@@ -989,7 +817,7 @@ class IntrinsicMotivation:
         for task, values in data_dict.items():
             pair = values["Coordinates"]
             #visual_goal = denormalize_vector(somVisual.get_weights()[pair[1][0], pair[1][1]], gps_data)
-            visual_goal = somVisual.get_weights()[pair[1][0], pair[1][1]]
+            visual_goal = robot.getRealGoalCoords(somVisual.get_weights()[pair[1][0], pair[1][1]])
 
             for policy, policy_data in values["Sets_and_Buffers"].items():
                 set_pairs = policy_data["Set"]
@@ -1049,11 +877,13 @@ class IntrinsicMotivation:
         set_pairs = self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"]
         
         coordinates = self.task_dictionary[task_key]["Coordinates"]
-        visual_goal = denormalize_vector(somVisual.get_weights()[coordinates[1][0], coordinates[1][1]], gps_data)
+        #visual_goal = denormalize_vector(somVisual.get_weights()[coordinates[1][0], coordinates[1][1]], gps_data)
+        visual_goal = robot.getRealGoalCoords(somVisual.get_weights()[coordinates[1][0], coordinates[1][1]])
 
         # Calculate predictive error for each coordinate in set_pairs
         for idx, coord in enumerate(set_pairs):
-            visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+            #visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+            visual_input = somVisual.get_weights()[coord[0], coord[1]]
             motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
             
             if motor_angles_coord is not None:
@@ -1274,8 +1104,7 @@ class IntrinsicMotivation:
         slopes = np.array(slopes)
         return slopes
     
-
-#intrin= IntrinsicMotivation()		
+	
     
 class Experiment:
     
@@ -1364,7 +1193,7 @@ class Experiment:
                 self.save_policy_to_json("learnt_policies.json",task_idx, policy_idx, self.intrinsic_motivation.task_dictionary)
                 self.remove_learned_task(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
 
-            self.save_task_dictionary_to_txt(self.intrinsic_motivation.task_dictionary, "task_dictionary.txt", it)
+            #self.save_task_dictionary_to_txt(self.intrinsic_motivation.task_dictionary, "task_dictionary.txt", it)
 
     
     def save_policy_to_json(self,file_name, task_idx, policy_idx, task_dictionary):
@@ -1437,21 +1266,33 @@ class Experiment:
 
             set_pairs = list(set_pairs)[1:]  # Skip the first element
             
-            merged_coordinates = [coordinates[0], coordinates[1]] + set_pairs
+            merged_coordinates = [coordinates[0]]+ set_pairs + [coordinates[1]]
             
             print("Executing Task Policy")
             print("Coordinates:", coordinates)
             print("Set Pairs:", set_pairs)
 
             print(merged_coordinates)
+            visual_coords=[]
+            ##
+            visual_goal = robot.getRealGoalCoords(somVisual.get_weights()[coordinates[1][0], coordinates[1][1]])
+            ##
             for idx, coord in enumerate(merged_coordinates):
-                     visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                     #visual_input = denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                     visual_input = somVisual.get_weights()[coord[0], coord[1]]
                      motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
                     
+                     visual_coords.append(denormalize_vector(visual_input, gps_data))
                      if motor_angles_coord is not None:
                          rotation_angles = denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
                          
                          robot.MoveArm(rotation_angles)
+                         print(f"Executing coord: {coord}, step {idx}. Visual coord: {denormalize_vector(visual_input, gps_data)}")
+
+                         ###
+                         print(f"Predictive error: {robot.executeMovement(rotation_angles, visual_goal)}")
+                         ###
+            print(f"Visual coords> {visual_coords}")
 
     def remove_learned_task(self, task_idx, task_dictionary, json_file):
         """
@@ -1622,11 +1463,72 @@ class Experiment:
             print(f"{file_name} does not exist, starting fresh.")
 
 
+somAngles = None
+somVisual = None
+somTasks = None
 
+# create the Robot instance and run main loop
+robot = Nao()
+#robot.run()
+
+####train data
+motor_data = []
+gps_data = []
+
+# Leer los datos del motor del CSV
+with open("motor_angles.csv", "r", newline='') as motor_csvfile:
+    motor_reader = csv.reader(motor_csvfile)
+   
+    for row in motor_reader:
+        motor_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
+    
+# Leer los datos del GPS del CSV
+with open("gps_hand.csv", "r", newline='') as gps_csvfile:
+    gps_reader = csv.reader(gps_csvfile)
+   
+    for row in gps_reader:
+        gps_data.append([float(value) for value in row[1:]])  # Pasar la columna del indice
             
+####
+#print(motor_data)
+
+    
+#####train SOMS
+#generateAnglesSOM()
+#generateVisualSOM()
+
+#####load SOMS           
+with open('somVisual.p', 'rb') as infile:
+    somVisual = pickle.load(infile)
+
+with open('somAngles.p', 'rb') as infile:
+    somAngles = pickle.load(infile)
+
+#####train hebbian table
+#hebbian_table = HebbianTable()
+#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
+
+#robot.hebbianTrain()
+#hebbian_table.saveTable("hebbian_table_new.txt")
+
+
+
+#####load hebbian table
+    
+# Crear una instancia de HebbianTable
+hebbian_table = HebbianTable()
+# Inicializar la tabla Hebbiana con las SOMs y un factor de aprendizaje
+hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
+
+hebbian_table.loadFromFile("hebbian_table_new.txt")
+
+#robot.hebbianTest(1)            
             
 exp= Experiment(0.1, 500)
 exp.run_exp()	
 if os.path.exists("learnt_policies.json"):
     exp.execute_loaded_policies("learnt_policies.json")
+else:
+    print("No tasks were learnt in this run")
+    
 
