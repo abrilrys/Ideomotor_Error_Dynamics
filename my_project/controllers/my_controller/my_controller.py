@@ -27,6 +27,18 @@ class Nao (Robot):
 
     
     def setArmAngle(self, angleShoulderPitch, angleShoulderRoll, angleElbowYaw, angleElbowRoll):
+        """
+        Sets the angles of the right arm's joints (shoulder and elbow).
+
+        The method clamps the input angles to ensure they are within the defined
+        maximum and minimum position limits for each joint before applying them.
+
+        Args:
+            -angleShoulderPitch (float): The desired angle for the shoulder pitch joint.
+            -angleShoulderRoll (float): The desired angle for the shoulder roll joint.
+            -angleElbowYaw (float): The desired angle for the elbow yaw joint.
+            -angleElbowRoll (float): The desired angle for the elbow roll joint.
+        """        
         clampedAngleShoulderPitch = angleShoulderPitch
         if clampedAngleShoulderPitch > self.maxRShoulderPitchPosition:
             clampedAngleShoulderPitch = self.maxRShoulderPitchPosition
@@ -59,7 +71,10 @@ class Nao (Robot):
       
 
     def printGps(self):
-        p = self.gps.getValues()
+        """
+        Prints the current GPS coordinates of the right robot's hand.
+        """        
+        p = self.getRelativeCoords()
         print('----------gps----------')
         print('position: [ x y z ] = [%f %f %f]' % (p[0], p[1], p[2]))
 
@@ -83,6 +98,12 @@ class Nao (Robot):
             print(line)
     
     def getRelativeCoords(self):
+        """
+        Calculates and returns the relative GPS coordinates of the robot's hand with respect to its body.
+
+        Returns:
+            -list: A list containing the relative coordinates [x, y, z].
+        """        
         # Leer la posición global del GPS de la mano
         gps_hand_coords = self.gps.getValues()
         
@@ -95,6 +116,9 @@ class Nao (Robot):
         return relative_coords
         
     def findAndEnableDevices(self):
+        """
+        Initializes and enables various devices for the robot.
+        """        
         # get the time step of the current world.
         self.timeStep = int(self.getBasicTimeStep())
 
@@ -138,6 +162,9 @@ class Nao (Robot):
         self.keyboard.enable(10 * self.timeStep)
 
     def __init__(self):
+        """
+        Initializes the Nao robot instance and sets up its devices.
+        """        
         Robot.__init__(self)
 
         # initialize stuff
@@ -145,8 +172,12 @@ class Nao (Robot):
     
     #función en donde se puede testear las conexiones del som 1 al som2 y viceversa    
     def hebbianTest(self, choice):
-        #choice =1 if you want to test from som 1 to som 2
-        #choice =2 if you want to test from som 2 to som 1
+        """
+        Tests the Hebbian learning connections between two self-organizing maps.
+
+        Args:
+            -choice (int): If 1, tests from SOM1 to SOM2; if 2, tests from SOM2 to SOM1.
+        """        
         random.seed(10)
         
         while robot.step(self.timeStep) != -1:
@@ -176,6 +207,16 @@ class Nao (Robot):
                 print("BMU SOM 1: ", hebbian_table.getConectionsFromSOM2(motor_entry))
         
     def executeMovement(self, rotation_angles, target_coordinate):
+        """
+        Executes a movement of the right robot's arm and calculates the predictive error.
+
+        Args:
+            -rotation_angles (list): A list containing the angles for the arm joints.
+            -target_coordinate (list): The target coordinates to compare against.
+
+        Returns:
+            -float: The calculated predictive error between the current and target position.
+        """        
         while robot.step(self.timeStep) != -1:
             # Set the random angles using the function
             self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
@@ -189,12 +230,21 @@ class Nao (Robot):
         return pred_error
 
     def MoveArm(self, rotation_angles):
+        """
+        Moves the right robot's arm to the specified angles.
+
+        Args:
+            -rotation_angles (list): A list containing the angles for the arm joints.
+        """        
         while robot.step(self.timeStep) != -1:
             time.sleep(1)
             self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
             break
         
     def hebbianTrain(self):
+        """
+        Trains the Hebbian learning table using random angles based on a normal distribution for the arm joints.
+        """        
         random.seed(10)
             
         i = 0  # Initialize iteration counter
@@ -251,7 +301,11 @@ class Nao (Robot):
                 break
     
     def run(self):
+        """
+        Runs the main loop to collect training samples for the robot's movements.
         
+        The loop runs for a specified number of iterations or until an error occurs or the iterations are over.
+        """        
         with open("motor_angles.csv", "w",newline='') as  motor_csvfile, \
              open("gps_hand.csv", "w", newline='') as gps_csvfile:
             motor_writer = csv.writer(motor_csvfile)
@@ -321,7 +375,9 @@ class Nao (Robot):
                     break
 
 def generateAnglesSOM():
-    
+    """
+    Generates a Self-Organizing Map (SOM) for motor angles.
+    """    
     global somAngles
     
     # Load data
@@ -361,7 +417,9 @@ def generateAnglesSOM():
         pickle.dump(somAngles, outfile)
     
 def generateVisualSOM():
-    
+    """
+    Generates a Self-Organizing Map (SOM) for visual coordinates.
+    """    
     global somVisual
     
     columns = ['Key','X', 'Y', 'Z']
@@ -457,7 +515,7 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 #robot.hebbianTest(1)
             
 exp= experimentation.Experiment(0.1, 300, robot)
-#exp.run_exp()
+exp.run_exp()
 if os.path.exists("learnt_policies.json"):
     exp.execute_loaded_policies("learnt_policies.json")
 else:

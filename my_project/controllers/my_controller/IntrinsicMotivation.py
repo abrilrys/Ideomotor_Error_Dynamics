@@ -23,6 +23,10 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
             
             
 class IntrinsicMotivation:
+    """
+    Designed to manage tasks and policies in a self-organizing map (SOM) learning environment.
+    
+    """    
     #self.lengthOfBuffers
     #self.task_dictionary
     #self.slopes
@@ -40,6 +44,22 @@ class IntrinsicMotivation:
         #print(self.buffers)
         
     def initialize_task_dictionary(self):
+        """
+         Initializes a dictionary containing task-related data for the robot's SOM-based learning process.
+
+            The method performs the following steps:
+            
+            1. Randomly selects 10 unique pairs of coordinates to represent tasks.
+            2. For each task, initializes 4 policies, where each policy contains:
+            - A set of 10 coordinates (the first being one of the task's pair coordinates).
+            - A buffer of length 11, initialized with increasing values.
+            3. For each task and policy, calculates predictive error.
+            5. Updates the policy's buffer with the calculated predictive error for each coordinate.
+
+            Returns:
+            A dictionary containing task data, where each task has its selected coordinate pair, policies and associated buffers.
+        """    
+        
         # Define the dimensions of the SOM
         som_height = self.somVisual.get_weights().shape[0]  # Number of rows
         som_width = self.somVisual.get_weights().shape[1]   # Number of columns
@@ -152,7 +172,7 @@ class IntrinsicMotivation:
         """
         Updates the buffer for a specific policy in a specific task.
         
-        Parameters:
+        Args:
         - policy_idx: Index of the policy to update.
         - task_idx: Index of the task to update.
         - new_buffer_values: List of new values to replace the buffer.
@@ -189,6 +209,9 @@ class IntrinsicMotivation:
 
 
     def print_task_dict(self):
+        """
+        Print the data from the task dictionary.
+        """        
         for task, content in self.task_dictionary.items():
             print(task, content)
 
@@ -196,7 +219,7 @@ class IntrinsicMotivation:
         """
         Calculate the minimum Euclidean distance between a node in the SOM and its neighbors.
         
-        Parameters:
+        Args:
         - node_coord: A tuple (x, y) representing the coordinates of the node.
         
         Returns:
@@ -234,11 +257,28 @@ class IntrinsicMotivation:
         return min_distance
     
     def evaluate_buffer(self,buffer):
+        """
+        Evaluates a buffer of PE based on three conditions:
+
+        1. The last element's distance to the x-axis (closeness to zero).
+        2. The slope of the linear regression over the buffer values, ensuring it's negative.
+        3. Whether the buffer is strictly decreasing.
+
+        Args:
+            -buffer (list or array): A buffer of values representing the history of predictive errors.
+
+        Returns:
+            tuple:
+                - distance_to_zero (float): The absolute value of the last buffer element (how close it is to zero).
+                - slope (float): The slope of the linear regression for the buffer values over time.
+                - is_decreasing (bool): A boolean indicating if the buffer is strictly decreasing.
+        """        
+        
         time_buffer = np.arange(self.lengthOfBuffers) 
         # Condition 1: Last element of the buffer close to x axis
         distance_to_zero = abs(buffer[-1])
         
-        # Condition 2: Slope of the linear regression (most negative)
+        # Condition 2: Slope of the linear regression (must be negative)
         _, slope = self.estimate_coef(time_buffer, np.array(buffer))
 
         # Condition 3: Verify if the buffer is strictly decreasing 
@@ -247,6 +287,21 @@ class IntrinsicMotivation:
         return distance_to_zero, slope, is_decreasing
     
     def evaluate_all_buffers(self):
+        """
+        Evaluates all buffers in the task dictionary based on their distance to zero and the slope of their linear regression.
+
+            The method iterates through each task and policy in the task dictionary, evaluates the corresponding buffer using 
+            the evaluate_buffer method, and stores the evaluation results.
+
+            Returns:
+                list: A sorted list of tuples, where each tuple contains:
+                    - buffer_index (int): The index of the buffer.
+                    - buffer (list or array): The buffer of values representing predictive errors.
+                    - distance_to_zero (float): The absolute value of the last buffer element (how close it is to zero).
+                    - slope (float): The slope of the linear regression for the buffer values over time.
+            
+            The returned list is sorted first by distance to zero (ascending) and then by slope (ascending).
+        """        
         evaluated_buffers = []
         
         buffer_index = 0
@@ -269,15 +324,43 @@ class IntrinsicMotivation:
         return evaluated_buffers    
            
     def get_best_goal(self):
+        """
+        Returns the index of the best goal based on the evaluated buffers.
+
+        The method calls 'evaluate_all_buffers' to get a sorted list of buffers, then returns the index of the buffer deemed 
+        best (the first in the sorted list).
+
+        Returns:
+            The index of the best goal based on the evaluation criteria.
+        """        
         buffer_sort=self.evaluate_all_buffers()
         best_goal_idx=buffer_sort[0][0]
         return best_goal_idx
         
     def get_random_goal(self):
+        """
+        Generates a random goal index within a specified range.
+
+        This method returns a random integer between 0 and 39, representing a goal index.
+
+        Returns:
+            A randomly generated goal index.
+        """        
         random_goal_idx=random.randint(0, 39)
         return random_goal_idx
 
     def get_neighbors(self, coord):
+        """
+        Returns the valid neighbors for a given coordinate in the Self-Organizing Map (SOM).
+
+        This method takes a coordinate as input and calculates its neighbors, considering up, down, left, righ and diagonal positions. 
+
+        Args:
+            -coord (tuple): A tuple representing the coordinate (row, column) for which to find neighbors.
+
+        Returns:
+            -list: A list of valid neighboring coordinates within the SOM.
+        """        
         row, col = coord
         som_height = self.somVisual.get_weights().shape[0]  # Number of rows
         som_width = self.somVisual.get_weights().shape[1]   # Number of columns
@@ -304,7 +387,7 @@ class IntrinsicMotivation:
         """
         Change a specific number of coordinates in the given policy while keeping the first coordinate.
         
-        Parameters:
+        Args:
         - policy_idx: Index of the policy to change.
         - task_idx: Index of the task to which the policy belongs.
         - num_coords_change: Number of coordinates to change in the policy.
@@ -342,6 +425,16 @@ class IntrinsicMotivation:
         
     #linear regression
     def estimate_coef(self,x, y):
+        """
+        Estimates the coefficients of a linear regression model given two vectors.
+
+        Args:
+            -x (numpy.ndarray): A 1D array representing the independent variable values.
+            -y (numpy.ndarray): A 1D array representing the dependent variable values.
+
+        Returns:
+            tuple: A tuple containing the intercept (b_0) and slope (b_1) of the regression line.
+        """        
         n = np.size(x)
         #mean of x and y vector
         m_x = np.mean(x)
@@ -355,6 +448,15 @@ class IntrinsicMotivation:
         return (b_0, b_1)
     
     def get_goal_from_task(self,task_idx):
+        """
+        Returns the goal coordinate from a specified task.
+
+        Args:
+            -task_idx (int): The index of the task to get the goal coordinate from.
+
+        Returns:
+            -tuple: A tuple representing the goal coordinate (row, column) of the specified task.
+        """        
         task_key = f"Task_{task_idx}"
         
         goal = self.task_dictionary[task_key]["Coordinates"][1]
@@ -362,6 +464,16 @@ class IntrinsicMotivation:
         return goal
 
     def get_buffer_from_task_policy(self,task_idx, policy_idx):
+        """
+        Returns the buffer associated with a specific policy of a specified task.
+
+        Args:
+            -task_idx (int): The index of the task from which to retrieve the buffer.
+            -policy_idx (int): The index of the policy associated with the task.
+
+        Returns:
+            -list: The buffer corresponding to the specified task and policy.
+        """        
         task_key = f"Task_{task_idx}"
         policy_key = f"Policy_{policy_idx}"
         
@@ -370,6 +482,12 @@ class IntrinsicMotivation:
         return buffer
 
     def get_slopes(self):
+        """
+        Calculates the slopes of linear regression for all buffers in the task dictionary.
+
+        Returns:
+            numpy.ndarray: An array of slopes calculated for each buffer.
+        """        
         time_buffer = np.arange(self.lengthOfBuffers)
         # List to store slopes of each buffer
         slopes = []

@@ -12,8 +12,19 @@ import csv
 
 
 class Experiment:
+    """
+    Implements the experiment.
+    """   
     
     def __init__(self, eps, duration, robot):
+        """
+        Initialize the parameters of the experiment
+        Args:
+            -eps (float): The epsilon value for the epsilon-greedy algorithm, which determines 
+                        the probability of selecting a random task versus the best-rated task.
+            -duration (float): The total duration of the experiment in seconds.
+            -robot (object): An instance of the robot that the agent will control or interact with.
+        """        
         self.robot=robot
         self.intrinsic_motivation = intrinsic.IntrinsicMotivation(somVisual, somAngles, hebbian_table, robot)
         self.eps=eps
@@ -24,6 +35,17 @@ class Experiment:
         
 
     def get_task_policy_from_index(self, index):
+        """
+        Calculate the task and policy index from a given index.
+
+        Args:
+            -index (int): The index representing a specific task-policy combination.
+
+        Returns:
+            -tuple: A tuple containing two integers:
+                - task_idx (int): The calculated index of the task.
+                - policy_idx (int): The calculated index of the policy within the task.
+        """        
         # Calculate the task and policy index
         task_idx = index // 4  
         policy_idx = index % 4  
@@ -31,7 +53,9 @@ class Experiment:
         return task_idx, policy_idx
     
     def run_exp(self):
-
+        """_
+        Execute the learning experiment over a specified duration.
+        """        
         self.clear_previous_file("task_dictionary.txt")
         self.clear_previous_file("learnt_policies.json")
 
@@ -108,7 +132,7 @@ class Experiment:
         """
         Save a specific policy's coordinates and set of coordinates to a JSON file.
         
-        Parameters:
+        Args:
         - file_name: Name of the JSON file to save to.
         - task_idx: The index of the task.
         - policy_idx: The index of the policy within the task.
@@ -146,7 +170,7 @@ class Experiment:
         """
         Load all policies from a JSON file.
         
-        Parameters:
+        Args:
         - file_name: The name of the JSON file to load from.
         
         Returns:
@@ -162,7 +186,7 @@ class Experiment:
         """
         Load and execute each policy from a JSON file.
         
-        Parameters:
+        Args:
             - file_name: The name of the JSON file to load from.
         """
         all_policies = self.load_all_policies_from_json(file_name)
@@ -195,7 +219,7 @@ class Experiment:
         Remove a learned task from the task_dictionary and replace it with a new task.
         The new task must have a unique pair of coordinates not present in the dictionary or JSON file.
         
-        Parameters:
+        Args:
         - task_idx: The index of the learned task to be removed.
         - task_dictionary: The dictionary holding the tasks and their policies.
         - json_file: The file where the tasks are saved to ensure unique coordinates.
@@ -238,7 +262,7 @@ class Experiment:
         """
         Generate a unique pair of coordinates not present in the existing_coordinates set.
         
-        Parameters:
+        Args:
         - existing_coordinates: A set containing coordinates that must be avoided.
         
         Returns:
@@ -258,7 +282,7 @@ class Experiment:
         """
         Add a new task with a set of policies to the task_dictionary.
         
-        Parameters:
+        Args:
         - task_dictionary: The dictionary to which the new task will be added.
         - coordinates: The new pair of task coordinates.
         - task_idx: The task index of the new task.
@@ -309,7 +333,7 @@ class Experiment:
         """
         Save the task_dictionary to a text file.
         
-        Parameters:
+        Args:
             - task_dictionary: The dictionary to be saved in the file.
             - file_name: The name of the text file.
             - iteration: The iteration the simulation is currently at.
@@ -330,7 +354,7 @@ class Experiment:
         """
         Recursively convert sets to lists in the dictionary to make it JSON serializable.
         
-        Parameters:
+        Args:
         - data: The input data.
         
         Returns:
@@ -349,7 +373,7 @@ class Experiment:
         """
         Delete the file if it exists
         
-        Parameters:
+        Args:
         - file_name: The name of the text file (default is 'task_dictionary_debug.txt').
         """
         if os.path.exists(file_name):

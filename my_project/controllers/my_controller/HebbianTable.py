@@ -2,7 +2,14 @@ import math
 import numpy as np
 
 class HebbianTable:
+    """
+    Implements a dual self-organizing map (SOM) system, facilitating the interaction and connection between two separate SOMs using 
+    the hebbian learning principles. 
+    """    
     def __init__(self):
+        """
+        Initialize the Hebbian Table.
+        """        
         self.som1 = None
         self.som2 = None
         self.som_size1 = 0
@@ -14,6 +21,14 @@ class HebbianTable:
         self.status = []
 
     def init(self, s1, s2, learning_factor):
+        """
+        Initialize the Hebbian Table with two SOMs and a learning factor.
+
+        Args:
+            -s1 (SOM): The first self-organizing map.
+            -s2 (SOM): The second self-organizing map.
+            -learning_factor (float): The learning rate for the Hebbian learning rule.
+        """        
         self.eta = learning_factor
         self.som1 = s1
         self.som2 = s2
@@ -24,6 +39,12 @@ class HebbianTable:
         self.crea_Hash(self.hasTam)
 
     def loadFromFile(self, filename):
+        """
+        Load the Hebbian table from a file.
+        
+        Args:
+            -filename (str): The name of the file from which to load the Hebbian table.
+        """        
         print(f"Loading hebbian table from {filename}")
         with open(filename, "r") as inputfile:
             lines = inputfile.readlines()
@@ -37,9 +58,30 @@ class HebbianTable:
         print("Hebbian table loaded.")
     
     def cantor_pairing(self, x, y):
+        """
+        Perform Cantor pairing on two integers.
+
+        This method combines two non-negative integers into a single unique integer using the Cantor pairing function.
+
+        Args:
+            -x (int): The first integer.
+            -y (int): The second integer.
+
+        Returns:
+            -int: The unique integer resulting from the Cantor pairing of x and y.
+        """        
         return ((x + y) * (x + y + 1))/2 + y
     
     def decantor_pairing(self,z):
+        """
+        Decantor pair a unique integer into its original two integers.
+
+        Args:
+            -z (int): The unique integer to decant.
+
+        Returns:
+            -tuple: A tuple containing the original two integers (x, y).
+        """        
         w = math.floor((math.sqrt(8 * z + 1) - 1) / 2)
         t = (w**2 + w) / 2
         y = int(z - t)
@@ -47,6 +89,13 @@ class HebbianTable:
         return (x, y)
     
     def learnUsingWinners(self, input_som1, input_som2):
+        """
+        Update the Hebbian table using the winning neurons from both SOMs.
+        
+        Args:
+            -input_som1 (array-like): The input vector for the first SOM.
+            -input_som2 (array-like): The input vector for the second SOM.
+        """        
         distance1, distance2 = 0.0, 0.0
         
         #get the map weight of each som
@@ -83,14 +132,44 @@ class HebbianTable:
             self.insrew_Hash(self.hasTam, position, peso + self.axons[indice])
 
     def funcion(self, k, m, i):
+        """
+        Compute a hash function based on the given parameters.
+
+        This method calculates a position in the hash table based on the
+        parameters k, m, and i.
+
+        Args:
+            -k (int): The key to hash.
+            -m (int): The size of the hash table.
+            -i (int): An incrementing index for probing.
+
+        Returns:
+            -int: The position in the hash table.
+        """        
         return ((k + i) % m)
 
     def crea_Hash(self, m):
+        """
+        Create a new hash table with a specified size.
+
+        Args:
+            -m (int): The size of the hash table to create.
+        """        
         self.axons = np.zeros(m)
         self.status = np.zeros((m, 2), dtype=int)
 
-    #retorna la posición 
     def busca_Hash(self, m, k, i):
+        """ 
+        Search for a key in the hash table.
+
+        Args:
+            -m (int): The size of the hash table.
+            -k (int): The key to search for.
+            -i (int): The current probing index.
+
+        Returns:
+            -int: The index of the key if found, otherwise -1.
+        """        
         j = 0
         if i < m:
             j = self.funcion(k, m, i)
@@ -104,8 +183,15 @@ class HebbianTable:
                 return self.busca_Hash(m, k, i + 1)
         return -1
 
-    #actualiza o ingresa el peso si aun no está en la tabla
     def insrew_Hash(self, m, k, peso):
+        """
+        Insert or update a weight in the hash table.
+
+        Parameters:
+            -m (int): The size of the hash table.
+            -k (int): The key for which to insert or update the weight.
+            -peso (float): The weight to be inserted or updated.
+        """        
         i = 0
         l = self.busca_Hash(m, k, 0)
         if l == -1:
@@ -122,8 +208,17 @@ class HebbianTable:
         else:
             self.axons[l] = peso
 
-    #retorna el peso
     def axonsbypos(self, som1indice, som2indice):
+        """
+        Returns the weight associated with a specific pair of indices.
+        
+        Args:
+           - som1indice (int): The index from the first SOM.
+            -som2indice (int): The index from the second SOM.
+
+        Returns:
+            -float: The weight associated with the specified pair of indices.
+        """        
         position = som1indice * self.som_size2 + som2indice
         indice = self.busca_Hash(self.hasTam, position, 0)
         if indice == -1:
@@ -133,7 +228,19 @@ class HebbianTable:
             
     def getConectionsFromSOM1(self, som1_vector):
         
-        
+        """
+        This method identifies the winning neuron in the first self-organizing map
+        (SOM1) for the provided input vector and retrieves the connected neurons
+        from the second self-organizing map (SOM2) that have the minimum activation
+        value based on the Hebbian learning table.
+
+        Args:
+            -som1_vector (array-like): The input vector for which to find the winner neuron in SOM1.
+
+        Returns:
+            tuple or None: The coordinates of the neuron in SOM2 that has the minimum activation connected to the winner of SOM1, 
+            or None if no connections exist.
+        """        
         #get winner neuron
         som1_winner = self.som1.winner(som1_vector)
         #print("BMU SOM 1: ", som1_winner)
@@ -175,6 +282,19 @@ class HebbianTable:
             return None
             
     def getConectionsFromSOM2(self, som2_vector):
+        """
+        This method identifies the winning neuron in the second self-organizing map
+        (SOM2) for the provided input vector and retrieves the connected neurons
+        from the first self-organizing map (SOM1) that have the minimum activation
+        value based on the Hebbian learning table.
+
+        Args:
+            -som2_vector (array-like): The input vector for which to find the winner neuron in SOM2.
+
+        Returns:
+            tuple or None: The coordinates of the neuron in SOM1 that has the minimum activation connected to the winner of SOM1, 
+            or None if no connections exist.
+        """        
         
         #get winner neuron
         som2_winner = self.som2.winner(som2_vector)
@@ -219,6 +339,12 @@ class HebbianTable:
 
 
     def saveTable(self, filename):
+        """
+        Save the Hebbian table to a specified file.
+
+        Args:
+            -filename (str): The name of the file to which to save the Hebbian table.
+        """        
         print("Saving hebbian table to {filename}")
         with open(filename, "w") as myfile:
             for x1 in range(self.hasTam):
