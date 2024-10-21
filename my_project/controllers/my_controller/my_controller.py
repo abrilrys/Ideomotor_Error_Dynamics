@@ -515,7 +515,7 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 #robot.hebbianTest(1)
             
 exp= experimentation.Experiment(0.1, 300, robot)
-exp.run_exp()
+#exp.run_exp()
 if os.path.exists("learnt_policies.json"):
     exp.execute_loaded_policies("learnt_policies.json")
 else:
