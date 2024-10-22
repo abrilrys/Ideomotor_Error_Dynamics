@@ -8,6 +8,7 @@ import random
 import pickle
 import HebbianTable as hebbian
 import csv
+from collections import deque
 
 
 
@@ -29,7 +30,8 @@ class Experiment:
         self.intrinsic_motivation = intrinsic.IntrinsicMotivation(somVisual, somAngles, hebbian_table, robot)
         self.eps=eps
         self.duration=duration
-        self.buffer_agent=[]
+        self.max_len_buffer_behaviour=25
+        self.buffer_agent=deque(maxlen=self.max_len_buffer_behaviour)
         self.current_goal_idx = -1
         self.prev_goal_idx = -1
         
@@ -62,7 +64,11 @@ class Experiment:
         start_time = time.time()
         
         it=0
-        buffer_time=[]
+        treshold_bad_behaviour=10
+        counter_bad_behaviour=0
+        
+        buffer_time= deque(maxlen=self.max_len_buffer_behaviour)
+        
         while time.time() - start_time < self.duration:
             
             print(f"######################################################\n Iteration {it}\n")
@@ -88,10 +94,10 @@ class Experiment:
 
             print(f"Previous dynamic: {prev_din}")
             
-            
-           
+            goal_task=self.intrinsic_motivation.get_goal_from_task(task_idx) 
+            print(f"Goal coordinate: {goal_task}")
             #modify the policy
-            self.intrinsic_motivation.change_policy(policy_idx, task_idx,3 )
+            self.intrinsic_motivation.change_policy(policy_idx, task_idx,3 , goal_task)
             
             
             #update the PE
@@ -109,23 +115,32 @@ class Experiment:
             self.buffer_agent.append(mse)
             
             buffer_time.append(it)
-            #print(f"buffer time: {buffer_time}")
+            print(f"buffer time: {buffer_time}")
             it=it+1
            
             
             b0, b1=self.intrinsic_motivation.estimate_coef(np.array(buffer_time), np.array(self.buffer_agent))
             print(f"Agent behaviour: b0= {b0}, b1= {b1}")
-          
+            
             #check if the task is learnt
             evaluation_buffer=self.intrinsic_motivation.evaluate_buffer(new_din)
-            goal_task=self.intrinsic_motivation.get_goal_from_task(task_idx)
             min_distance_to_neighbors=self.intrinsic_motivation.get_min_distance_to_neighbors(tuple(goal_task))
             #print("min_distance_to_neighbors > ", min_distance_to_neighbors)
             if evaluation_buffer[0]<min_distance_to_neighbors and evaluation_buffer[1]<0 and evaluation_buffer[2]:
                 print("task learnt")
                 self.save_policy_to_json("learnt_policies.json",task_idx, policy_idx, self.intrinsic_motivation.task_dictionary)
-                self.remove_learned_task(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
+                self.remove_task(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
 
+            if (b1 > 0):
+                counter_bad_behaviour= counter_bad_behaviour+1
+                print(f"Counter bad behaviour: {counter_bad_behaviour}")
+                if(counter_bad_behaviour>treshold_bad_behaviour):
+                    counter_bad_behaviour=0
+                    worst_task_idx=self.intrinsic_motivation.get_worst_task()
+                    self.remove_task(random.randint(0, 9),self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
+            else:
+                counter_bad_behaviour=0
+                    
             #self.save_task_dictionary_to_txt(self.intrinsic_motivation.task_dictionary, "task_dictionary.txt", it)      
     
     def save_policy_to_json(self,file_name, task_idx, policy_idx, task_dictionary):
@@ -149,6 +164,7 @@ class Experiment:
         policy_to_save = {
             "Coordinates": coordinates,
             "SetPairs": list(policy_data["Set"]),  # Convert set to a list for JSON compatibility
+            "Buffer":list(policy_data["Buffer"])
         }
         
         if os.path.exists(file_name):
@@ -205,7 +221,8 @@ class Experiment:
 
             print(f"Trajectory: {merged_coordinates} ")
             for idx, coord in enumerate(merged_coordinates):
-                     visual_input = tools.denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                     #visual_input = tools.denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                     visual_input =somVisual.get_weights()[coord[0], coord[1]]
                      motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
                      
                      print(f"Point {idx}: {visual_input}")
@@ -214,9 +231,9 @@ class Experiment:
                          
                          self.robot.MoveArm(rotation_angles)
 
-    def remove_learned_task(self, task_idx, task_dictionary, json_file):
+    def remove_task(self, task_idx, task_dictionary, json_file):
         """
-        Remove a learned task from the task_dictionary and replace it with a new task.
+        Remove a  task from the task_dictionary and replace it with a new task.
         The new task must have a unique pair of coordinates not present in the dictionary or JSON file.
         
         Args:

@@ -224,7 +224,7 @@ class Nao (Robot):
             time.sleep(0.002)
             gps_entry = self.getRelativeCoords()
             # Calculate predictive error between current position and target
-            pred_error = np.linalg.norm(np.array(gps_entry) - np.array(target_coordinate))
+            pred_error = np.linalg.norm(np.array(target_coordinate)- np.array(gps_entry))
             #print("Prediction error: ", pred_error)
             break
         return pred_error
@@ -514,8 +514,8 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 
 #robot.hebbianTest(1)
             
-exp= experimentation.Experiment(0.1, 300, robot)
-#exp.run_exp()
+exp= experimentation.Experiment(0.1, 700, robot)
+exp.run_exp()
 if os.path.exists("learnt_policies.json"):
     exp.execute_loaded_policies("learnt_policies.json")
 else:

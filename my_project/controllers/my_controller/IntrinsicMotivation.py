@@ -136,7 +136,9 @@ class IntrinsicMotivation:
                 
                 # Calculate predictive error for each coordinate in set_pairs
                 for idx, coord in enumerate(set_pairs):
-                    visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                    #visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
+                    visual_input=self.somVisual.get_weights()[coord[0], coord[1]]
+                    
                     motor_angles_coord = self.hebbian_table.getConectionsFromSOM1(visual_input)
                     
                     if motor_angles_coord is not None:
@@ -190,7 +192,9 @@ class IntrinsicMotivation:
 
         # Calculate predictive error for each coordinate in set_pairs
         for idx, coord in enumerate(set_pairs):
-            visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
+            #visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
+            visual_input = self.somVisual.get_weights()[coord[0], coord[1]]
+            
             motor_angles_coord = self.hebbian_table.getConectionsFromSOM1(visual_input)
             
             if motor_angles_coord is not None:
@@ -322,6 +326,20 @@ class IntrinsicMotivation:
         # Then by slope (most negative)
         evaluated_buffers.sort(key=lambda x: (x[2], x[3]))  # Sort by (distance_to_zero, slope)
         return evaluated_buffers    
+    
+    def get_worst_task(self):
+        """
+        Returns the index of the worst task based on the evaluated buffers.
+
+        The method calls 'evaluate_all_buffers' to get a sorted list of buffers, then returns the index of the buffer deemed 
+        worst (the last in the sorted list).
+
+        Returns:
+            The index of the worst task based on the evaluation criteria.
+        """        
+        buffer_sort=self.evaluate_all_buffers()
+        worst_task_idx=buffer_sort[-1][0]
+        return worst_task_idx
            
     def get_best_goal(self):
         """
@@ -383,7 +401,7 @@ class IntrinsicMotivation:
         
         return neighbors
 
-    def change_policy(self, policy_idx, task_idx, num_coords_change):
+    def change_policy(self, policy_idx, task_idx, num_coords_change, goal_coord):
         """
         Change a specific number of coordinates in the given policy while keeping the first coordinate.
         
@@ -391,6 +409,7 @@ class IntrinsicMotivation:
         - policy_idx: Index of the policy to change.
         - task_idx: Index of the task to which the policy belongs.
         - num_coords_change: Number of coordinates to change in the policy.
+        - goal_coord: The goal coordinate that the agent wants to reach
         """
         task_key = f"Task_{task_idx}"
         policy_key = f"Policy_{policy_idx}"
@@ -411,8 +430,17 @@ class IntrinsicMotivation:
             neighbors = self.get_neighbors(coord_to_change)
             #print(f"Neighbors: {neighbors}")
 
-            new_coord = random.choice([n for n in neighbors if n != coord_to_change])
+            valid_neighbors = [n for n in neighbors if n not in set_pairs and n!= goal_coord]
             
+            if not valid_neighbors:
+                print(f"No valid neighbors found for {coord_to_change}. Skipping.")
+                continue
+            #new_coord = random.choice([n for n in neighbors if n != coord_to_change])
+            
+            # Select the neighbor closest to the goal coordinate
+            new_coord = min(neighbors, key=lambda neighbor: np.linalg.norm(np.array(neighbor) - np.array(goal_coord)))
+            print(f"Changed coord: {coord_to_change} for: {new_coord}")
+            # Replace the old coordinate with the new one
             set_pairs[set_pairs.index(coord_to_change)] = new_coord
         
         set_pairs[0] = first_coord  
