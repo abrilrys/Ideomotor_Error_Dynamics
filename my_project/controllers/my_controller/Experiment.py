@@ -64,7 +64,7 @@ class Experiment:
         start_time = time.time()
         
         it=0
-        treshold_bad_behaviour=10
+        treshold_bad_behaviour=30
         counter_bad_behaviour=0
         
         buffer_time= deque(maxlen=self.max_len_buffer_behaviour)
@@ -101,45 +101,46 @@ class Experiment:
             
             
             #update the PE
-            self.intrinsic_motivation.update_buffer(policy_idx, task_idx)
+            x=self.intrinsic_motivation.update_buffer(policy_idx, task_idx)
+            if(x==None):
+                self.remove_task(task_idx, self.intrinsic_motivation.task_dictionary, "learnt_policies.json")
+            else:  
+                #get current dynamic of current goal
+                new_din=np.copy(self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx))
+                print(f"New dynamic: {new_din}")
+                
+                #get PE of dynamic
+                mse = np.mean((np.array(prev_din) - np.array(new_din)) ** 2)
+                print(f"Mean Squared Error: {mse}")
+                
+                self.buffer_agent.append(mse)
+                
+                buffer_time.append(it)
+                print(f"buffer time: {buffer_time}")
+                it=it+1
             
-           
-            #get current dynamic of current goal
-            new_din=np.copy(self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx))
-            print(f"New dynamic: {new_din}")
-            
-            #get PE of dynamic
-            mse = np.mean((np.array(prev_din) - np.array(new_din)) ** 2)
-            print(f"Mean Squared Error: {mse}")
-            
-            self.buffer_agent.append(mse)
-            
-            buffer_time.append(it)
-            print(f"buffer time: {buffer_time}")
-            it=it+1
-           
-            
-            b0, b1=self.intrinsic_motivation.estimate_coef(np.array(buffer_time), np.array(self.buffer_agent))
-            print(f"Agent behaviour: b0= {b0}, b1= {b1}")
-            
-            #check if the task is learnt
-            evaluation_buffer=self.intrinsic_motivation.evaluate_buffer(new_din)
-            min_distance_to_neighbors=self.intrinsic_motivation.get_min_distance_to_neighbors(tuple(goal_task))
-            #print("min_distance_to_neighbors > ", min_distance_to_neighbors)
-            if evaluation_buffer[0]<min_distance_to_neighbors and evaluation_buffer[1]<0 and evaluation_buffer[2]:
-                print("task learnt")
-                self.save_policy_to_json("learnt_policies.json",task_idx, policy_idx, self.intrinsic_motivation.task_dictionary)
-                self.remove_task(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
+                
+                b0, b1=self.intrinsic_motivation.estimate_coef(np.array(buffer_time), np.array(self.buffer_agent))
+                print(f"Agent behaviour: b0= {b0}, b1= {b1}")
+                
+                #check if the task is learnt
+                evaluation_buffer=self.intrinsic_motivation.evaluate_buffer(new_din)
+                min_distance_to_neighbors=self.intrinsic_motivation.get_min_distance_to_neighbors(tuple(goal_task))
+                #print("min_distance_to_neighbors > ", min_distance_to_neighbors)
+                if evaluation_buffer[0]<min_distance_to_neighbors and evaluation_buffer[1]<0 and evaluation_buffer[2]:
+                    print("task learnt")
+                    self.save_policy_to_json("learnt_policies.json",task_idx, policy_idx, self.intrinsic_motivation.task_dictionary)
+                    self.remove_task(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
 
-            if (b1 > 0):
-                counter_bad_behaviour= counter_bad_behaviour+1
-                print(f"Counter bad behaviour: {counter_bad_behaviour}")
-                if(counter_bad_behaviour>treshold_bad_behaviour):
+                if (b1 > 0):
+                    counter_bad_behaviour= counter_bad_behaviour+1
+                    print(f"Counter bad behaviour: {counter_bad_behaviour}")
+                    if(counter_bad_behaviour>treshold_bad_behaviour):
+                        counter_bad_behaviour=0
+                        #worst_task_idx=self.intrinsic_motivation.get_worst_task()
+                        self.remove_task(random.randint(0, 9),self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
+                else:
                     counter_bad_behaviour=0
-                    worst_task_idx=self.intrinsic_motivation.get_worst_task()
-                    self.remove_task(random.randint(0, 9),self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
-            else:
-                counter_bad_behaviour=0
                     
             #self.save_task_dictionary_to_txt(self.intrinsic_motivation.task_dictionary, "task_dictionary.txt", it)      
     

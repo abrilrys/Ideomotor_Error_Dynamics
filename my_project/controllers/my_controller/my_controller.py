@@ -14,6 +14,10 @@ import tools
 import IntrinsicMotivation as intrinsic
 import Experiment as experimentation
 
+
+
+motor_tolerance=0.00001
+
 class Nao (Robot):
     PHALANX_MAX = 8
     maxRShoulderPitchPosition=0
@@ -39,6 +43,7 @@ class Nao (Robot):
             -angleElbowYaw (float): The desired angle for the elbow yaw joint.
             -angleElbowRoll (float): The desired angle for the elbow roll joint.
         """        
+        #print(f"Rotation entry: {angleShoulderPitch}, {angleShoulderRoll}, {angleElbowYaw}, {angleElbowRoll}")
         clampedAngleShoulderPitch = angleShoulderPitch
         if clampedAngleShoulderPitch > self.maxRShoulderPitchPosition:
             clampedAngleShoulderPitch = self.maxRShoulderPitchPosition
@@ -68,6 +73,14 @@ class Nao (Robot):
         self.RShoulderRoll.setPosition(clampedAngleShoulderRoll)
         self.RElbowYaw.setPosition(clampedAngleElbowYaw)
         self.RElbowRoll.setPosition(clampedAngleElbowRoll)
+        
+        # motor_tolerance= 0.01
+        # while True:
+        # # Check if the arm is within the motor_tolerance range
+        #     if (abs(self.RShoulderPitchPS.getValue()-self.RShoulderPitch.getTargetPosition()) > motor_tolerance) and (abs(self.RShoulderRollPS.getValue()-self.RShoulderRoll.getTargetPosition()) > motor_tolerance) and (abs(self.RElbowRollPS.getValue()-self.RElbowRoll.getTargetPosition()) > motor_tolerance) and (abs(self.RShoulderPitchPS.getValue()-self.RShoulderPitch.getTargetPosition()) > motor_tolerance):
+        #         break
+       
+        
       
 
     def printGps(self):
@@ -106,9 +119,12 @@ class Nao (Robot):
         """        
         # Leer la posición global del GPS de la mano
         gps_hand_coords = self.gps.getValues()
+        #print(f"Hand gps: {gps_hand_coords}")
         
         # Leer la posición del cuerpo del NAO
         gps_body_coords = self.gps_body.getValues()
+        #print(f"Body gps: {gps_body_coords}")
+        
         
         # Calcular la posición relativa del GPS con respecto al cuerpo
         relative_coords = [gps_hand_coords[i] - gps_body_coords[i] for i in range(3)]
@@ -142,6 +158,15 @@ class Nao (Robot):
         self.RElbowYaw=self.getDevice("RElbowYaw")
         self.RElbowRoll=self.getDevice("RElbowRoll")
         
+        self.RShoulderPitchPS= self.RShoulderPitch.getPositionSensor()
+        self.RShoulderPitchPS.enable(1)
+        self.RShoulderRollPS= self.RShoulderRoll.getPositionSensor()
+        self.RShoulderRollPS.enable(1)
+        self.RElbowYawPS= self.RElbowYaw.getPositionSensor()
+        self.RElbowYawPS.enable(1)
+        self.RElbowRollPS= self.RElbowRoll.getPositionSensor()
+        self.RElbowRollPS.enable(1)
+        
         self.maxRShoulderPitchPosition=self.RShoulderPitch.getMaxPosition();
         self.minRShoulderPitchPosition=self.RShoulderPitch.getMinPosition();
         self.maxRShoulderRollPosition=self.RShoulderRoll.getMaxPosition();
@@ -166,7 +191,6 @@ class Nao (Robot):
         Initializes the Nao robot instance and sets up its devices.
         """        
         Robot.__init__(self)
-
         # initialize stuff
         self.findAndEnableDevices()
     
@@ -179,18 +203,18 @@ class Nao (Robot):
             -choice (int): If 1, tests from SOM1 to SOM2; if 2, tests from SOM2 to SOM1.
         """        
         random.seed(10)
-        
-        while robot.step(self.timeStep) != -1:
+        max_iterations=5000
+        for i in range (max_iterations):
          # Generate random angles within the specified range
             randomShoulderPitch =  round(random.uniform(self.minRShoulderPitchPosition,self.maxRShoulderPitchPosition),4)
             randomShoulderRoll = round(random.uniform(self.minRShoulderRollPosition, self.maxRShoulderRollPosition),4)
             randomElbowYaw = round(random.uniform(self.minRElbowYawPosition, self.maxRElbowYawPosition),4)
             randomElbowRoll = round(random.uniform(self.minRElbowRollPosition, self.maxRElbowRollPosition),4)
             
-            # Set the random angles using the function
-            self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
-            
             motor_entry = [randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
+            # Set the random angles using the function
+            self.MoveArm(motor_entry)
+            
             # Get GPS data
             gps_entry = self.getRelativeCoords()
             #print(gps_entry)
@@ -217,17 +241,38 @@ class Nao (Robot):
         Returns:
             -float: The calculated predictive error between the current and target position.
         """        
-        while robot.step(self.timeStep) != -1:
-            # Set the random angles using the function
-            self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
-            # Get GPS data
-            time.sleep(0.002)
-            gps_entry = self.getRelativeCoords()
-            # Calculate predictive error between current position and target
-            pred_error = np.linalg.norm(np.array(target_coordinate)- np.array(gps_entry))
-            #print("Prediction error: ", pred_error)
-            break
+        # Set the random angles using the function
+        self.MoveArm(rotation_angles)
+        # Get GPS data
+        gps_entry = self.getRelativeCoords()
+        time.sleep(0.002)
+        # Calculate predictive error between current position and target
+        pred_error = np.linalg.norm(np.array(target_coordinate)- np.array(gps_entry))
+        #print(f"$$$Target coordinate: {target_coordinate}, Gps entry: {gps_entry}, pred error: {pred_error}, rotation angles:{rotation_angles}")
+        #print("Prediction error: ", pred_error)
+            
         return pred_error
+    
+    def getRealGpsGoal(self, rotation_angles):
+        """
+        Executes a movement of the right robot's arm and calculates the asociated gps relative coordinates.
+
+        Args:
+            -rotation_angles (list): A list containing the angles for the arm joints.
+
+        Returns:
+            The calculated relative gps coordinates.
+        """        
+        
+        # Set the random angles using the function
+        self.MoveArm(rotation_angles)
+        #print(f"Goal rotation angles: {rotation_angles}")
+        # Get GPS data
+        
+        gps_entry = self.getRelativeCoords()
+        #print(f"Actual goal gps: {gps_entry}")
+        time.sleep(0.002)
+        return gps_entry
 
     def MoveArm(self, rotation_angles):
         """
@@ -237,9 +282,11 @@ class Nao (Robot):
             -rotation_angles (list): A list containing the angles for the arm joints.
         """        
         while robot.step(self.timeStep) != -1:
-            time.sleep(1)
             self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
-            break
+            #time.sleep(1)
+            
+            if (abs(self.RShoulderPitchPS.getValue()-self.RShoulderPitch.getTargetPosition()) < motor_tolerance) and (abs(self.RShoulderRollPS.getValue()-self.RShoulderRoll.getTargetPosition()) < motor_tolerance) and (abs(self.RElbowRollPS.getValue()-self.RElbowRoll.getTargetPosition()) < motor_tolerance) and (abs(self.RShoulderPitchPS.getValue()-self.RShoulderPitch.getTargetPosition()) < motor_tolerance):
+                break
         
     def hebbianTrain(self):
         """
@@ -247,7 +294,6 @@ class Nao (Robot):
         """        
         random.seed(10)
             
-        i = 0  # Initialize iteration counter
         max_iterations = 5000
         print("Initializing hebbian table training for "+ str(max_iterations) + " iterations. \t")
 
@@ -266,7 +312,7 @@ class Nao (Robot):
             
 
         #loop_delay = 0.5  # Adjust the delay as needed
-        while robot.step(self.timeStep) != -1:
+        for i in range(max_iterations):
             # Generate random angles within the specified range
             randomShoulderPitch = round(random.gauss(mu_ShoulderPitch, sigma_ShoulderPitch), 4)
             randomShoulderRoll = round(random.gauss(mu_ShoulderRoll, sigma_ShoulderRoll), 4)
@@ -278,12 +324,13 @@ class Nao (Robot):
             randomShoulderRoll = max(min(randomShoulderRoll, self.maxRShoulderRollPosition), self.minRShoulderRollPosition)
             randomElbowYaw = max(min(randomElbowYaw, self.maxRElbowYawPosition), self.minRElbowYawPosition)
             randomElbowRoll = max(min(randomElbowRoll, self.maxRElbowRollPosition), self.minRElbowRollPosition)
-                    
-            # Set the random angles using the function
-            self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
-            
+
             motor_entry = [randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
+            # Set the random angles using the function
+            self.MoveArm(motor_entry)
+            
             # Get GPS data
+            
             gps_entry = self.getRelativeCoords()
             
             #normalize
@@ -294,12 +341,10 @@ class Nao (Robot):
             print("Waiting for 0.002s \t")
             time.sleep(0.002)
             hebbian_table.learnUsingWinners(gps_entry, motor_entry)
-            
-            i += 1
-            
-            if i>=max_iterations:
-                break
     
+    def testGPS(self):
+        self.printGps()
+        
     def run(self):
         """
         Runs the main loop to collect training samples for the robot's movements.
@@ -315,7 +360,6 @@ class Nao (Robot):
             self.LShoulderPitch.setPosition(2)
             random.seed(10)
             
-            i = 0  # Initialize iteration counter
             max_iterations = 5000
             print("Obtaining training set samples for "+ str(max_iterations) + " iterations. \t")
             # Mean and standard deviation for the normal distribution
@@ -333,7 +377,7 @@ class Nao (Robot):
             
             
             #loop_delay = 0.5  # Adjust the delay as needed
-            while robot.step(self.timeStep) != -1:
+            for i in range (max_iterations):
                 try:
                     # Generate random angles within the specified range
                     randomShoulderPitch = round(random.gauss(mu_ShoulderPitch, sigma_ShoulderPitch), 4)
@@ -347,14 +391,13 @@ class Nao (Robot):
                     randomElbowYaw = max(min(randomElbowYaw, self.maxRElbowYawPosition), self.minRElbowYawPosition)
                     randomElbowRoll = max(min(randomElbowRoll, self.maxRElbowRollPosition), self.minRElbowRollPosition)
                     
+                    rotation_angles=[randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
                     # Set the random angles using the function
-                    self.setArmAngle(randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll)
-                    
+                    self.MoveArm(rotation_angles)
                     
                     # Get GPS data
-                    #gps_data = self.gps.getValues()
                     gps_data = self.getRelativeCoords()
-                    #print(self.gps.getSamplingPeriod())
+                    
                     print('----------gps----------')
                     print('position: [ x y z ] = [%f %f %f]' % (gps_data[0], gps_data[1], gps_data[2]))
                     
@@ -366,13 +409,11 @@ class Nao (Robot):
                     gps_writer.writerow([i,gps_data[0], gps_data[1], gps_data[2]])
                     
                     print(i)
-                    i += 1
-                    
-                    if i>=max_iterations:
-                        break
                 except Exception as e:
                     print(f"Error at iteration {i}: {e}")
                     break
+                
+     
 
 def generateAnglesSOM():
     """
@@ -459,7 +500,7 @@ somVisual = None
 
 # create the Robot instance and run main loop
 robot = Nao()
-#robot.run()
+# robot.run()
 
 ####train data
 motor_data = []
@@ -484,8 +525,8 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
 
     
 #####train SOMS
-#generateAnglesSOM()
-#generateVisualSOM()
+# generateAnglesSOM()
+# generateVisualSOM()
 
 #####load SOMS           
 with open('somVisual.p', 'rb') as infile:
@@ -495,11 +536,11 @@ with open('somAngles.p', 'rb') as infile:
     somAngles = pickle.load(infile)
 
 #####train hebbian table
-#hebbian_table = hebbian.HebbianTable()
-#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
+# hebbian_table = hebbian.HebbianTable()
+# hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
-#robot.hebbianTrain()
-#hebbian_table.saveTable("hebbian_table_new.txt")
+# robot.hebbianTrain()
+# hebbian_table.saveTable("hebbian_table_new.txt")
 
 
 
@@ -514,12 +555,17 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 
 #robot.hebbianTest(1)
             
-exp= experimentation.Experiment(0.1, 700, robot)
+exp= experimentation.Experiment(0.1, 300, robot)
 exp.run_exp()
 if os.path.exists("learnt_policies.json"):
     exp.execute_loaded_policies("learnt_policies.json")
 else:
     print("No tasks were learnt in this run")
 
-
+# while (1):
+#     rotation_angles=[1,0,0,2]
+#     robot.MoveArm(rotation_angles)
+#     print(robot.RShoulderPitchPS.getValue()-robot.RShoulderPitch.getTargetPosition())
+#     gps_entry = robot.getRelativeCoords()
+#     print(f"GPS: {gps_entry}")
 

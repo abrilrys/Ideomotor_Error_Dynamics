@@ -128,8 +128,19 @@ class IntrinsicMotivation:
         # Calculate predictive error and update the buffer
         for task, values in data_dict.items():
             pair = values["Coordinates"]
-            visual_goal = tools.denormalize_vector(self.somVisual.get_weights()[pair[1][0], pair[1][1]], gps_data)
+            #visual_goal = tools.denormalize_vector(self.somVisual.get_weights()[pair[1][0], pair[1][1]], gps_data)
+            visual_goal = self.somVisual.get_weights()[pair[1][0], pair[1][1]]
             
+            motor_angles_goal_coord = self.hebbian_table.getConectionsFromSOM1(visual_goal)
+                    
+            if motor_angles_goal_coord is not None:
+                rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_goal_coord[0], motor_angles_goal_coord[1]], motor_data)
+                real_goal = self.robot.getRealGpsGoal(rotation_angles)
+            else:
+                print("Goal not reachable, changing task")
+                #logic to change task 
+                        
+                        
             for policy, policy_data in values["Sets_and_Buffers"].items():
                 set_pairs = policy_data["Set"]
                 buffer = policy_data["Buffer"]
@@ -140,12 +151,10 @@ class IntrinsicMotivation:
                     visual_input=self.somVisual.get_weights()[coord[0], coord[1]]
                     
                     motor_angles_coord = self.hebbian_table.getConectionsFromSOM1(visual_input)
-                    
                     if motor_angles_coord is not None:
                         rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
-                        
                         # Assume the final goal is the second coordinate of the pair
-                        predictive_error = self.robot.executeMovement(rotation_angles, visual_goal)
+                        predictive_error = self.robot.executeMovement(rotation_angles, real_goal)
                         
                         # Store predictive error in the buffer
                         if idx < len(buffer):  # Ensure we don't go out of bounds
@@ -188,26 +197,38 @@ class IntrinsicMotivation:
         set_pairs = self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"]
         
         coordinates = self.task_dictionary[task_key]["Coordinates"]
-        visual_goal = tools.denormalize_vector(self.somVisual.get_weights()[coordinates[1][0], coordinates[1][1]], gps_data)
+        #visual_goal = tools.denormalize_vector(self.somVisual.get_weights()[coordinates[1][0], coordinates[1][1]], gps_data)
+        #print(f"Goal: {coordinates[1][0]}, { coordinates[1][1]}")
+        visual_goal = self.somVisual.get_weights()[coordinates[1][0], coordinates[1][1]]
 
+        motor_angles_goal_coord = self.hebbian_table.getConectionsFromSOM1(visual_goal)
+            
+        if motor_angles_goal_coord is not None:
+            rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_goal_coord[0], motor_angles_goal_coord[1]], motor_data)
+            realGoal=self.robot.getRealGpsGoal(rotation_angles)
+        else:
+            print("Goal not reachable, changing task")
+            return None
+            
         # Calculate predictive error for each coordinate in set_pairs
         for idx, coord in enumerate(set_pairs):
             #visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
             visual_input = self.somVisual.get_weights()[coord[0], coord[1]]
-            
+            #print(f"Visual input= {coord[0]}, {coord[1]}")
             motor_angles_coord = self.hebbian_table.getConectionsFromSOM1(visual_input)
             
             if motor_angles_coord is not None:
                 rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
                 
                 # Assume the final goal is the second coordinate of the pair
-                predictive_error = self.robot.executeMovement(rotation_angles, visual_goal)
+                predictive_error = self.robot.executeMovement(rotation_angles, realGoal)
                 
                 # Store predictive error in the buffer
                 if idx < len(buffer):  # Ensure we don't go out of bounds
                     buffer[idx] = predictive_error 
 
         self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"] = buffer
+        return 1
         
         
 
@@ -435,10 +456,11 @@ class IntrinsicMotivation:
             if not valid_neighbors:
                 print(f"No valid neighbors found for {coord_to_change}. Skipping.")
                 continue
-            #new_coord = random.choice([n for n in neighbors if n != coord_to_change])
             
-            # Select the neighbor closest to the goal coordinate
-            new_coord = min(neighbors, key=lambda neighbor: np.linalg.norm(np.array(neighbor) - np.array(goal_coord)))
+            new_coord = random.choice([n for n in valid_neighbors])
+            
+            ## Select the neighbor closest to the goal coordinate
+            #new_coord = min(valid_neighbors, key=lambda neighbor: np.linalg.norm(np.array(neighbor) - np.array(goal_coord)))
             print(f"Changed coord: {coord_to_change} for: {new_coord}")
             # Replace the old coordinate with the new one
             set_pairs[set_pairs.index(coord_to_change)] = new_coord
@@ -446,7 +468,7 @@ class IntrinsicMotivation:
         set_pairs[0] = first_coord  
         self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"] = set_pairs
         print(f"New set pairs: {set_pairs}")
-
+        #print( self.task_dictionary[task_key]["Sets_and_Buffers"])
         print(f"Updated policy {policy_idx} for task {task_idx}, keeping the first coordinate unchanged.")
 
         #self.print_task_dict()

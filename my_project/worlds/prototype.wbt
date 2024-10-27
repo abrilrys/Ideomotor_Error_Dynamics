@@ -17,16 +17,17 @@ RectangleArena {
   floorSize 5 5
   floorTileSize 1 1
 }
-Nao {
+DEF MY_ROBOT Nao {
   degreeOfFreedom 21
   controller "my_controller"
+  supervisor TRUE
   bodySlot [
-    GPS {
+    DEF BODY_GPS GPS {
       name "gps_body"
     }
   ]
   rightHandSlot [
-    GPS {
+    DEF HAND_GPS GPS {
       name "hand_gps"
     }
   ]
