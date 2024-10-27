@@ -60,7 +60,8 @@ class Experiment:
         """        
         self.clear_previous_file("task_dictionary.txt")
         self.clear_previous_file("learnt_policies.json")
-
+        
+        self.intrinsic_motivation.initDict()
         start_time = time.time()
         
         it=0
@@ -207,6 +208,7 @@ class Experiment:
             - file_name: The name of the JSON file to load from.
         """
         all_policies = self.load_all_policies_from_json(file_name)
+        all_final_points = [] #stores all trajectories for each task
         
         for policy in all_policies:
             coordinates = policy["Coordinates"]
@@ -221,17 +223,32 @@ class Experiment:
             print("Set Pairs:", set_pairs)
 
             print(f"Trajectory: {merged_coordinates} ")
+            
+            final_points=[]
             for idx, coord in enumerate(merged_coordinates):
                      #visual_input = tools.denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
                      visual_input =somVisual.get_weights()[coord[0], coord[1]]
                      motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
                      
-                     print(f"Point {idx}: {visual_input}")
+                     print(f"Point {idx}: {tools.denormalize_vector(visual_input, gps_data)}")
                      if motor_angles_coord is not None:
                          rotation_angles = tools.denormalize_vector(somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
                          
                          self.robot.MoveArm(rotation_angles)
+                         real_coords=self.robot.getRelativeCoords()
+                         final_points.append(real_coords)
+                         print(real_coords)
+            
+            all_final_points.append(final_points) 
+            print(f"Real points{final_points}")
+            
+        # Write all final points to a JSON file
+        json_file = "real_final_coords.json"
+        with open(json_file, 'w') as file:
+            json.dump(all_final_points, file)
 
+        print(f"All task trajectories saved to {json_file}")
+            
     def remove_task(self, task_idx, task_dictionary, json_file):
         """
         Remove a  task from the task_dictionary and replace it with a new task.

@@ -38,10 +38,15 @@ class IntrinsicMotivation:
         self.somVisual=somVisual
         self.somAngles=somAngles
         self.hebbian_table=hebbianTable
-        self.task_dictionary=self.initialize_task_dictionary()
-        self.slopes=self.get_slopes()
+        # self.task_dictionary=self.initialize_task_dictionary()
+        # self.slopes=self.get_slopes()
         #self.print_task_dict()
         #print(self.buffers)
+    
+    def initDict(self):
+        self.task_dictionary=self.initialize_task_dictionary()
+        self.slopes=self.get_slopes()
+        
         
     def initialize_task_dictionary(self):
         """
@@ -440,8 +445,10 @@ class IntrinsicMotivation:
         
         print(f"Set pairs: {set_pairs}")
         first_coord = set_pairs[0]
+        first_buffer = buffer[0]
         
         coords_to_consider = set_pairs[1:]  # Skip the first coordinate
+        buffer_to_consider = buffer[1:]
         
         sorted_coords_by_error = sorted(coords_to_consider, key=lambda coord: buffer[set_pairs.index(coord)], reverse=True)
         
@@ -457,16 +464,24 @@ class IntrinsicMotivation:
                 print(f"No valid neighbors found for {coord_to_change}. Skipping.")
                 continue
             
-            new_coord = random.choice([n for n in valid_neighbors])
+            #new_coord = random.choice([n for n in valid_neighbors])
             
             ## Select the neighbor closest to the goal coordinate
-            #new_coord = min(valid_neighbors, key=lambda neighbor: np.linalg.norm(np.array(neighbor) - np.array(goal_coord)))
+            new_coord = min(valid_neighbors, key=lambda neighbor: np.linalg.norm(np.array(neighbor) - np.array(goal_coord)))
             print(f"Changed coord: {coord_to_change} for: {new_coord}")
             # Replace the old coordinate with the new one
             set_pairs[set_pairs.index(coord_to_change)] = new_coord
         
-        set_pairs[0] = first_coord  
+        combined = sorted(zip(buffer_to_consider, coords_to_consider), key=lambda x: x[0], reverse=True)
+        sorted_buffer, sorted_coords = zip(*combined)
+        
+        buffer = [first_buffer] + list(sorted_buffer)
+        set_pairs = [first_coord] + list(sorted_coords)
+        
+        #set_pairs[0] = first_coord  
         self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"] = set_pairs
+        self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"] = buffer
+        
         print(f"New set pairs: {set_pairs}")
         #print( self.task_dictionary[task_key]["Sets_and_Buffers"])
         print(f"Updated policy {policy_idx} for task {task_idx}, keeping the first coordinate unchanged.")

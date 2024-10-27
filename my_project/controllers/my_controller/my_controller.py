@@ -119,11 +119,11 @@ class Nao (Robot):
         """        
         # Leer la posición global del GPS de la mano
         gps_hand_coords = self.gps.getValues()
-        #print(f"Hand gps: {gps_hand_coords}")
+        print(f"Hand gps: {gps_hand_coords}")
         
         # Leer la posición del cuerpo del NAO
         gps_body_coords = self.gps_body.getValues()
-        #print(f"Body gps: {gps_body_coords}")
+        print(f"Body gps: {gps_body_coords}")
         
         
         # Calcular la posición relativa del GPS con respecto al cuerpo
@@ -248,7 +248,7 @@ class Nao (Robot):
         time.sleep(0.002)
         # Calculate predictive error between current position and target
         pred_error = np.linalg.norm(np.array(target_coordinate)- np.array(gps_entry))
-        #print(f"$$$Target coordinate: {target_coordinate}, Gps entry: {gps_entry}, pred error: {pred_error}, rotation angles:{rotation_angles}")
+        #print(f"$$$Target coordinate: {target_coordinate}, Gps entry: {gps_entry}, pred error: {pred_error}")
         #print("Prediction error: ", pred_error)
             
         return pred_error
@@ -556,7 +556,7 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 #robot.hebbianTest(1)
             
 exp= experimentation.Experiment(0.1, 300, robot)
-exp.run_exp()
+#exp.run_exp()
 if os.path.exists("learnt_policies.json"):
     exp.execute_loaded_policies("learnt_policies.json")
 else:
