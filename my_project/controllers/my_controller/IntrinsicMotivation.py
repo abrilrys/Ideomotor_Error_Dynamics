@@ -135,7 +135,7 @@ class IntrinsicMotivation:
             pair = values["Coordinates"]
             #visual_goal = tools.denormalize_vector(self.somVisual.get_weights()[pair[1][0], pair[1][1]], gps_data)
             visual_goal = self.somVisual.get_weights()[pair[1][0], pair[1][1]]
-            
+            visual_goal=np.round(visual_goal,4)
             motor_angles_goal_coord = self.hebbian_table.getConectionsFromSOM1(visual_goal)
                     
             if motor_angles_goal_coord is not None:
@@ -154,12 +154,12 @@ class IntrinsicMotivation:
                 for idx, coord in enumerate(set_pairs):
                     #visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
                     visual_input=self.somVisual.get_weights()[coord[0], coord[1]]
-                    
+                    visual_input=np.round(visual_input,4)
                     motor_angles_coord = self.hebbian_table.getConectionsFromSOM1(visual_input)
                     if motor_angles_coord is not None:
                         rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
                         # Assume the final goal is the second coordinate of the pair
-                        predictive_error = self.robot.executeMovement(rotation_angles, real_goal)
+                        predictive_error = self.robot.GetPredError(rotation_angles, real_goal)
                         
                         # Store predictive error in the buffer
                         if idx < len(buffer):  # Ensure we don't go out of bounds
@@ -205,7 +205,7 @@ class IntrinsicMotivation:
         #visual_goal = tools.denormalize_vector(self.somVisual.get_weights()[coordinates[1][0], coordinates[1][1]], gps_data)
         #print(f"Goal: {coordinates[1][0]}, { coordinates[1][1]}")
         visual_goal = self.somVisual.get_weights()[coordinates[1][0], coordinates[1][1]]
-
+        visual_goal=np.round(visual_goal,4)
         motor_angles_goal_coord = self.hebbian_table.getConectionsFromSOM1(visual_goal)
             
         if motor_angles_goal_coord is not None:
@@ -219,6 +219,7 @@ class IntrinsicMotivation:
         for idx, coord in enumerate(set_pairs):
             #visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
             visual_input = self.somVisual.get_weights()[coord[0], coord[1]]
+            visual_input=np.round(visual_input,4)
             #print(f"Visual input= {coord[0]}, {coord[1]}")
             motor_angles_coord = self.hebbian_table.getConectionsFromSOM1(visual_input)
             
@@ -226,13 +227,29 @@ class IntrinsicMotivation:
                 rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
                 
                 # Assume the final goal is the second coordinate of the pair
-                predictive_error = self.robot.executeMovement(rotation_angles, realGoal)
+                predictive_error = self.robot.GetPredError(rotation_angles, realGoal)
                 
                 # Store predictive error in the buffer
                 if idx < len(buffer):  # Ensure we don't go out of bounds
                     buffer[idx] = predictive_error 
 
+            # Preserve the first element of buffer and set_pairs
+        first_buffer_element = buffer[0]
+        first_set_pair = set_pairs[0]
+        
+        # Sort buffer (excluding the first element) in descending order and reorder set_pairs accordingly
+        sorted_pairs = sorted(zip(buffer[1:], set_pairs[1:]), key=lambda x: x[0], reverse=True)
+        sorted_buffer, sorted_set_pairs = zip(*sorted_pairs) if sorted_pairs else ([], [])
+
+        # Reconstruct the buffer and set_pairs with the first elements intact
+        buffer = [first_buffer_element] + list(sorted_buffer)
+        set_pairs = [first_set_pair] + list(sorted_set_pairs)
+        
+        # Update the task dictionary with the sorted buffer and set_pairs
         self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"] = buffer
+        self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"] = set_pairs
+        
+        #self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"] = buffer
         return 1
         
         
@@ -259,6 +276,7 @@ class IntrinsicMotivation:
         som_width = self.somVisual.get_weights().shape[1]
 
         som_weights=self.somVisual.get_weights()
+        som_weights=np.round(som_weights,4)
         x, y = node_coord
         
         # List of relative positions of 8 neighbors
@@ -271,7 +289,7 @@ class IntrinsicMotivation:
         min_distance = float('inf')
 
         node_vector = som_weights[x, y]
-        
+
         for offset in neighbor_offsets:
             neighbor_x, neighbor_y = x + offset[0], y + offset[1]
             
@@ -445,10 +463,10 @@ class IntrinsicMotivation:
         
         print(f"Set pairs: {set_pairs}")
         first_coord = set_pairs[0]
-        first_buffer = buffer[0]
+        #first_buffer = buffer[0]
         
         coords_to_consider = set_pairs[1:]  # Skip the first coordinate
-        buffer_to_consider = buffer[1:]
+        #buffer_to_consider = buffer[1:]
         
         sorted_coords_by_error = sorted(coords_to_consider, key=lambda coord: buffer[set_pairs.index(coord)], reverse=True)
         
@@ -472,15 +490,16 @@ class IntrinsicMotivation:
             # Replace the old coordinate with the new one
             set_pairs[set_pairs.index(coord_to_change)] = new_coord
         
-        combined = sorted(zip(buffer_to_consider, coords_to_consider), key=lambda x: x[0], reverse=True)
-        sorted_buffer, sorted_coords = zip(*combined)
+        #combined = sorted(zip(buffer_to_consider, coords_to_consider), key=lambda x: x[0], reverse=True)
+        #sorted_buffer, sorted_coords = zip(*combined)
         
-        buffer = [first_buffer] + list(sorted_buffer)
-        set_pairs = [first_coord] + list(sorted_coords)
+        #buffer = [first_buffer] + list(sorted_buffer)
         
-        #set_pairs[0] = first_coord  
+        #set_pairs = [first_coord] + list(sorted_coords)
+        
+        set_pairs[0] = first_coord  
         self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"] = set_pairs
-        self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"] = buffer
+        #self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"] = buffer
         
         print(f"New set pairs: {set_pairs}")
         #print( self.task_dictionary[task_key]["Sets_and_Buffers"])

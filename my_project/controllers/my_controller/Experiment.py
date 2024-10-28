@@ -228,6 +228,8 @@ class Experiment:
             for idx, coord in enumerate(merged_coordinates):
                      #visual_input = tools.denormalize_vector(somVisual.get_weights()[coord[0], coord[1]], gps_data)
                      visual_input =somVisual.get_weights()[coord[0], coord[1]]
+                     visual_input=np.round(visual_input,4)
+                     
                      motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
                      
                      print(f"Point {idx}: {tools.denormalize_vector(visual_input, gps_data)}")

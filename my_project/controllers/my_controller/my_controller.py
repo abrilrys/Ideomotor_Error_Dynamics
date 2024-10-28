@@ -119,15 +119,15 @@ class Nao (Robot):
         """        
         # Leer la posición global del GPS de la mano
         gps_hand_coords = self.gps.getValues()
-        print(f"Hand gps: {gps_hand_coords}")
+        #print(f"Hand gps: {gps_hand_coords}")
         
         # Leer la posición del cuerpo del NAO
         gps_body_coords = self.gps_body.getValues()
-        print(f"Body gps: {gps_body_coords}")
+        #print(f"Body gps: {gps_body_coords}")
         
         
         # Calcular la posición relativa del GPS con respecto al cuerpo
-        relative_coords = [gps_hand_coords[i] - gps_body_coords[i] for i in range(3)]
+        relative_coords = [round(gps_hand_coords[i] - gps_body_coords[i], 4) for i in range(3)]
         #print("Coordenadas GPS relativas:", relative_coords)
         return relative_coords
         
@@ -230,7 +230,7 @@ class Nao (Robot):
             else:
                 print("BMU SOM 1: ", hebbian_table.getConectionsFromSOM2(motor_entry))
         
-    def executeMovement(self, rotation_angles, target_coordinate):
+    def GetPredError(self, rotation_angles, target_coordinate):
         """
         Executes a movement of the right robot's arm and calculates the predictive error.
 
@@ -247,7 +247,7 @@ class Nao (Robot):
         gps_entry = self.getRelativeCoords()
         time.sleep(0.002)
         # Calculate predictive error between current position and target
-        pred_error = np.linalg.norm(np.array(target_coordinate)- np.array(gps_entry))
+        pred_error = round(np.linalg.norm(np.array(target_coordinate)- np.array(gps_entry)),5)
         #print(f"$$$Target coordinate: {target_coordinate}, Gps entry: {gps_entry}, pred error: {pred_error}")
         #print("Prediction error: ", pred_error)
             
@@ -524,7 +524,7 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
 #print(motor_data)
 
     
-#####train SOMS
+# ####train SOMS
 # generateAnglesSOM()
 # generateVisualSOM()
 
@@ -556,7 +556,7 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 #robot.hebbianTest(1)
             
 exp= experimentation.Experiment(0.1, 300, robot)
-#exp.run_exp()
+exp.run_exp()
 if os.path.exists("learnt_policies.json"):
     exp.execute_loaded_policies("learnt_policies.json")
 else:
@@ -565,7 +565,7 @@ else:
 # while (1):
 #     rotation_angles=[1,0,0,2]
 #     robot.MoveArm(rotation_angles)
-#     print(robot.RShoulderPitchPS.getValue()-robot.RShoulderPitch.getTargetPosition())
+#     #print(robot.RShoulderPitchPS.getValue()-robot.RShoulderPitch.getTargetPosition())
 #     gps_entry = robot.getRelativeCoords()
 #     print(f"GPS: {gps_entry}")
 

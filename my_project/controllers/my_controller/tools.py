@@ -20,6 +20,8 @@ def denormalize_vector(normalized_vector, data):
     for i in range(len(normalized_vector)):
         denormalized_value = normalized_vector[i] * (max_values[i] - min_values[i]) + min_values[i]
         denormalized_vector.append(denormalized_value)
+        
+    denormalized_vector=np.round(denormalized_vector,4)
     return denormalized_vector
     
 def min_max_normalize(x):
