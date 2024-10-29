@@ -81,6 +81,7 @@ class Experiment:
             print(f"Previous task {task_index}\n")
             
             if(counter_it_in_task>min_iterations_per_task):
+                print(f"EVALUATING TASK CHANGE, COUNTER BAD BEHAVIOUR: {counter_bad_behaviour}")
                 counter_it_in_task=0
                 if(counter_bad_behaviour>treshold_bad_behaviour):
                     counter_bad_behaviour=0
@@ -88,10 +89,12 @@ class Experiment:
                     if prob < self.eps: 
                         # move to another random task (explore)
                         task_index = random.randint(0, (self.intrinsic_motivation.numberOfTasks-1))
+                        print(f"Changed to a random task {task_index}\n") 
                     else:
                         #get the best rated task on overall performance (explote)
-                        task_index = self.intrinsic_motivation.overall_task_performance.index(max(self.intrinsic_motivation.overall_task_performance))   
-                    print(f"Changed to task {task_index}\n")
+                        task_index = self.intrinsic_motivation.overall_task_performance.index(max(self.intrinsic_motivation.overall_task_performance)) 
+                        print(f"Changed to the best rated task {task_index}\n")  
+                    
                 else:
                     #continue learning the same task
                     task_index=task_index
