@@ -44,7 +44,10 @@ class IntrinsicMotivation:
         #print(self.buffers)
     
     def initDict(self):
-        self.task_dictionary=self.initialize_task_dictionary()
+        while(1):
+            x=self.task_dictionary=self.initialize_task_dictionary()
+            if(x!= None):
+                break
         self.slopes=self.get_slopes()
         
         
@@ -143,7 +146,7 @@ class IntrinsicMotivation:
                 real_goal = self.robot.getRealGpsGoal(rotation_angles)
             else:
                 print("Goal not reachable, changing task")
-                #logic to change task 
+                return None
                         
                         
             for policy, policy_data in values["Sets_and_Buffers"].items():
@@ -201,6 +204,7 @@ class IntrinsicMotivation:
         buffer = self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"]
         set_pairs = self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"]
         
+        
         coordinates = self.task_dictionary[task_key]["Coordinates"]
         #visual_goal = tools.denormalize_vector(self.somVisual.get_weights()[coordinates[1][0], coordinates[1][1]], gps_data)
         #print(f"Goal: {coordinates[1][0]}, { coordinates[1][1]}")
@@ -232,6 +236,9 @@ class IntrinsicMotivation:
                 # Store predictive error in the buffer
                 if idx < len(buffer):  # Ensure we don't go out of bounds
                     buffer[idx] = predictive_error 
+            elif idx==0 and motor_angles_coord==None:
+                print("Unstartable task (first coordinate in policy not reachable), changing task")
+                return None
 
             # Preserve the first element of buffer and set_pairs
         first_buffer_element = buffer[0]
