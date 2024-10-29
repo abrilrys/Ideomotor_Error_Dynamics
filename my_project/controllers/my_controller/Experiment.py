@@ -33,7 +33,6 @@ class Experiment:
         self.max_len_buffer_behaviour=25
         self.buffer_agent=deque(maxlen=self.max_len_buffer_behaviour)
         self.current_goal_idx = -1
-        self.prev_goal_idx = -1
         
 
     def get_task_policy_from_index(self, index):
@@ -65,33 +64,60 @@ class Experiment:
         start_time = time.time()
         
         it=0
-        treshold_bad_behaviour=30
+        treshold_bad_behaviour=5
         counter_bad_behaviour=0
+        min_iterations_per_task=10
+        counter_it_in_task=0
+        
         
         buffer_time= deque(maxlen=self.max_len_buffer_behaviour)
         
+        #get the best rated task on overall performance (explote)
+        task_index = self.intrinsic_motivation.overall_task_performance.index(max(self.intrinsic_motivation.overall_task_performance)) 
+                        
         while time.time() - start_time < self.duration:
             
             print(f"######################################################\n Iteration {it}\n")
-
-            self.prev_goal_idx =self.current_goal_idx
-
+            print(f"Previous task {task_index}\n")
+            
+            if(counter_it_in_task>min_iterations_per_task):
+                counter_it_in_task=0
+                if(counter_bad_behaviour>treshold_bad_behaviour):
+                    counter_bad_behaviour=0
+                    prob=np.random.random() 
+                    if prob < self.eps: 
+                        # move to another random task (explore)
+                        task_index = random.randint(0, (self.intrinsic_motivation.numberOfTasks-1))
+                    else:
+                        #get the best rated task on overall performance (explote)
+                        task_index = self.intrinsic_motivation.overall_task_performance.index(max(self.intrinsic_motivation.overall_task_performance))   
+                    print(f"Changed to task {task_index}\n")
+                else:
+                    #continue learning the same task
+                    task_index=task_index
+                    print(f"Continuing with task {task_index} because of good performance\n")
+                    
+            
             # get the current task using the intrinsic motivation strategy and e-greedy algorithm
             p = np.random.random() 
             if p < self.eps: 
                 #select random task
-                self.current_goal_idx=self.intrinsic_motivation.get_random_goal()
+                # self.current_goal_idx=self.intrinsic_motivation.get_random_goal()
+                self.current_goal_idx=self.intrinsic_motivation.get_random_policy(task_index)
                 
                 task_idx, policy_idx=self.get_task_policy_from_index(self.current_goal_idx)
                 #get previous dynamic of said taks and policy
                 prev_din=np.copy(self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx))
             else: 
                 #select best rated task
-                self.current_goal_idx=self.intrinsic_motivation.get_best_goal()
+                #self.current_goal_idx=self.intrinsic_motivation.get_best_goal()
+                self.current_goal_idx=self.intrinsic_motivation.get_best_policy(task_index)
+                
                 task_idx, policy_idx=self.get_task_policy_from_index(self.current_goal_idx)
                 #get previous dynamic of said taks and policy
                 prev_din=np.copy(self.intrinsic_motivation.get_buffer_from_task_policy(task_idx, policy_idx))
 
+            print(f"EXECUTING TASK {task_idx}, POLICY {policy_idx}")
 
             print(f"Previous dynamic: {prev_din}")
             
@@ -118,8 +144,6 @@ class Experiment:
                 
                 buffer_time.append(it)
                 print(f"buffer time: {buffer_time}")
-                it=it+1
-            
                 
                 b0, b1=self.intrinsic_motivation.estimate_coef(np.array(buffer_time), np.array(self.buffer_agent))
                 print(f"Agent behaviour: b0= {b0}, b1= {b1}")
@@ -136,12 +160,11 @@ class Experiment:
                 if (b1 > 0):
                     counter_bad_behaviour= counter_bad_behaviour+1
                     print(f"Counter bad behaviour: {counter_bad_behaviour}")
-                    if(counter_bad_behaviour>treshold_bad_behaviour):
-                        counter_bad_behaviour=0
-                        #worst_task_idx=self.intrinsic_motivation.get_worst_task()
-                        self.remove_task(random.randint(0, 9),self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
-                else:
-                    counter_bad_behaviour=0
+                
+                self.intrinsic_motivation.updateTaskPerformance()
+                print(f"Overall task performance: {self.intrinsic_motivation.overall_task_performance}")
+                it=it+1
+                counter_it_in_task=counter_it_in_task+1
                     
             #self.save_task_dictionary_to_txt(self.intrinsic_motivation.task_dictionary, "task_dictionary.txt", it)      
     

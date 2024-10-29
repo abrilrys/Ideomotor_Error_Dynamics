@@ -43,13 +43,15 @@ class IntrinsicMotivation:
         #self.print_task_dict()
         #print(self.buffers)
     
-    def initDict(self):
+    def initDict(self): 
+        #iterate until the task dictionary is correctly initialized (with executable goals and starting points)
         while(1):
-            x=self.task_dictionary=self.initialize_task_dictionary()
-            if(x!= None):
+            self.task_dictionary=self.initialize_task_dictionary()
+            if(self.task_dictionary!= None):
                 break
-        self.slopes=self.get_slopes()
-        
+            
+        #get the overall task performance
+        self.updateTaskPerformance()
         
     def initialize_task_dictionary(self):
         """
@@ -82,12 +84,13 @@ class IntrinsicMotivation:
         selected_pairs = []
         selected_pairs_count = 0
         
-        numberOfTasks = 10
+        self.numberOfTasks = 10
         
-        while selected_pairs_count < numberOfTasks:
+        
+        while selected_pairs_count < self.numberOfTasks:
             # Select two random coordinates
-            coord1 = random.choice(all_coordinates)
-            coord2 = random.choice(all_coordinates)
+            coord1 = self.find_executable_neuron(all_coordinates)
+            coord2 = self.find_executable_neuron(all_coordinates)
             
             # Ensure the pair is unique and not repeated
             if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
@@ -97,17 +100,18 @@ class IntrinsicMotivation:
         # Create a dictionary to store the data
         data_dict = {}
         
-        numberOfPolicies = 4
-        lengthOfPolicies = 10
+        self.numberOfPolicies = 4
+        self.lengthOfPolicies = 10
+        
         lengthOfBuffers = self.lengthOfBuffers
         
         # Populate the dictionary with selected pairs, associated sets, and buffers
         for task_index, pair in enumerate(selected_pairs, start=0):
             sets_and_buffers = {}
-            for policy_index in range(0, numberOfPolicies):
+            for policy_index in range(0, self.numberOfPolicies):
                 set_pairs = []
                 # Add random coordinates not equal to the pair coordinates
-                while len(set_pairs) < lengthOfPolicies:
+                while len(set_pairs) < self.lengthOfPolicies:
                     random_coord = random.choice(all_coordinates)
                     if random_coord != pair[0] and random_coord != pair[1]:
                         set_pairs.append(random_coord)
@@ -187,6 +191,55 @@ class IntrinsicMotivation:
         print("Buffers saved into 'tasks_train_dataset.csv'")
         return data_dict
     
+    def find_executable_neuron(self, all_coordinates):
+        """
+        Attempts to find an executable neuron goal given an initial coordinate.
+        
+        Args:
+            -initial_goal(pair): A neuron representing the goal coordinate
+            -all_coordinates (list): The list of neurons 
+        
+        Returns:
+            -initial_goal(pair): A neuron that has a conection in the hebbian table to a motor command
+        """
+        initial_goal=random.choice(all_coordinates)
+        while True:
+            visual_goal = self.somVisual.get_weights()[initial_goal[0], initial_goal[1]]
+            motor_angles_goal_coord = self.hebbian_table.getConectionsFromSOM1(visual_goal)
+            if motor_angles_goal_coord is not None:
+                return initial_goal
+            # Pick a new coordinate if the goal is not executable
+            initial_goal = random.choice(all_coordinates)
+         
+    def updateTaskPerformance(self):
+        overallTaskPerformance = []
+
+        for task, values in self.task_dictionary.items():
+            task_performance = []
+
+            for policy, policy_data in values["Sets_and_Buffers"].items():
+                buffer = policy_data["Buffer"]
+                
+                # Sum 1 each time the buffer is decreasing
+                decrease_count = sum(1 for i in range(1, len(buffer)) if buffer[i] < buffer[i - 1])
+                decrease_score = decrease_count / (len(buffer) - 1)
+
+                # Measure 2: Convergence to final goal (last element close to zero)
+                final_goal_closeness = 1 / (1 + abs(buffer[-1]))  # Scales closer values to a higher score
+                
+                # Combined score: Weighted average of both measures
+                policy_score = 0.7 * decrease_score + 0.3 * final_goal_closeness
+                task_performance.append(policy_score)
+
+            # Average performance across all policies for the task
+            overall_task_score = sum(task_performance) / len(task_performance)
+            overallTaskPerformance.append(overall_task_score)
+        
+        
+        print("Overall Task Performance calculated:", overallTaskPerformance)
+        self.overall_task_performance=overallTaskPerformance
+        
+        
     def update_buffer(self, policy_idx, task_idx):
         """
         Updates the buffer for a specific policy in a specific task.
@@ -341,42 +394,49 @@ class IntrinsicMotivation:
         
         return distance_to_zero, slope, is_decreasing
     
-    def evaluate_all_buffers(self):
+    def evaluate_best_task_buffers(self, best_task_index):
         """
-        Evaluates all buffers in the task dictionary based on their distance to zero and the slope of their linear regression.
-
-            The method iterates through each task and policy in the task dictionary, evaluates the corresponding buffer using 
-            the evaluate_buffer method, and stores the evaluation results.
-
-            Returns:
-                list: A sorted list of tuples, where each tuple contains:
-                    - buffer_index (int): The index of the buffer.
-                    - buffer (list or array): The buffer of values representing predictive errors.
-                    - distance_to_zero (float): The absolute value of the last buffer element (how close it is to zero).
-                    - slope (float): The slope of the linear regression for the buffer values over time.
+        Evaluates only the buffers of the task with the highest overall performance.
+        
+        Returns:
+            list: A sorted list of tuples, where each tuple contains:
+                - buffer_index (int): The index of the buffer (calculated across all tasks).
+                - buffer (list or array): The buffer of values representing predictive errors.
+                - distance_to_zero (float): The absolute value of the last buffer element.
+                - slope (float): The slope of the linear regression for the buffer values.
             
             The returned list is sorted first by distance to zero (ascending) and then by slope (ascending).
-        """        
+        """
+        # Identify the index of the task with the best overall performance
+        #best_task_index = self.overallTaskPerformance.index(max(self.overallTaskPerformance))
+        
         evaluated_buffers = []
         
-        buffer_index = 0
-        # Loop through all buffers in the data_dict
-        for task, values in self.task_dictionary.items():
-            for policy, policy_data in values["Sets_and_Buffers"].items():
-                buffer = policy_data["Buffer"]
-                
-                # Evaluate the buffer
-                distance_to_zero, slope,_ = self.evaluate_buffer(buffer)
-                
-                # Store the buffer with its evaluation criteria
-                evaluated_buffers.append((buffer_index, buffer, distance_to_zero, slope))
-                
-                buffer_index += 1
-        # Sort buffers: 
+        # Retrieve the best-performing task from the task dictionary
+        best_task = self.task_dictionary[f"Task_{best_task_index}"]
+        
+        # Evaluate only the buffers in this best-performing task
+        for policy_index, (policy, policy_data) in enumerate(best_task["Sets_and_Buffers"].items()):
+            buffer = policy_data["Buffer"]
+            
+            # Calculate the global buffer index
+            buffer_index = (best_task_index * 4) + policy_index
+            
+            # Evaluate the buffer
+            distance_to_zero, slope, _ = self.evaluate_buffer(buffer)
+            
+            # Store the buffer with its evaluation criteria
+            evaluated_buffers.append((buffer_index, buffer, distance_to_zero, slope))
+
+        # Sort buffers:
         # First by distance_to_zero
         # Then by slope (most negative)
         evaluated_buffers.sort(key=lambda x: (x[2], x[3]))  # Sort by (distance_to_zero, slope)
-        return evaluated_buffers    
+        
+        return evaluated_buffers
+
+
+  
     
     def get_worst_task(self):
         """
@@ -391,32 +451,61 @@ class IntrinsicMotivation:
         buffer_sort=self.evaluate_all_buffers()
         worst_task_idx=buffer_sort[-1][0]
         return worst_task_idx
+
            
-    def get_best_goal(self):
+    # def get_best_goal(self):
+    #     """
+    #     Returns the index of the best goal based on the evaluated buffers.
+
+    #     The method calls 'evaluate_all_buffers' to get a sorted list of buffers, then returns the index of the buffer deemed 
+    #     best (the first in the sorted list).
+
+    #     Returns:
+    #         The index of the best goal based on the evaluation criteria.
+    #     """        
+    #     buffer_sort=self.evaluate_all_buffers()
+    #     best_goal_idx=buffer_sort[0][0]
+    #     return best_goal_idx
+    
+    def get_best_policy(self, best_task_idx):
         """
-        Returns the index of the best goal based on the evaluated buffers.
+        Returns the index of the best policy based on the evaluated buffers of a given task.
 
-        The method calls 'evaluate_all_buffers' to get a sorted list of buffers, then returns the index of the buffer deemed 
+        The method calls 'evaluate_best_task_buffers' to get a sorted list of buffers, then returns the index of the buffer deemed 
         best (the first in the sorted list).
-
+        
+        Args:
+            -best_task_idx(int): The index of the best overall performance task
         Returns:
             The index of the best goal based on the evaluation criteria.
         """        
-        buffer_sort=self.evaluate_all_buffers()
-        best_goal_idx=buffer_sort[0][0]
-        return best_goal_idx
+        buffer_sort=self.evaluate_best_task_buffers(best_task_idx)
+        best_policy_idx=buffer_sort[0][0]
+        return best_policy_idx
         
-    def get_random_goal(self):
-        """
-        Generates a random goal index within a specified range.
+    # def get_random_goal(self):
+    #     """
+    #     Generates a random goal index within a specified range.
 
-        This method returns a random integer between 0 and 39, representing a goal index.
+    #     This method returns a random integer between 0 and 39, representing a goal index.
+
+    #     Returns:
+    #         A randomly generated goal index.
+    #     """        
+    #     random_goal_idx=random.randint(0, 39)
+    #     return random_goal_idx
+    
+    def get_random_policy(self, task_idx):
+        """
+        Generates a random policy index within a specified range.
+
+        This method returns a random integer between 0 and 3, representing a policy index.
 
         Returns:
-            A randomly generated goal index.
+            A randomly generated policy index.
         """        
-        random_goal_idx=random.randint(0, 39)
-        return random_goal_idx
+        random_policy_idx=(task_idx * 4) + random.randint(0, 3)
+        return random_policy_idx
 
     def get_neighbors(self, coord):
         """
