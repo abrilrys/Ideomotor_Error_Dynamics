@@ -276,6 +276,51 @@ class Experiment:
             json.dump(all_final_points, file)
 
         print(f"All task trajectories saved to {json_file}")
+        
+    def execute_policy_by_index(self, file_name, policy_index):
+        """
+        Execute a specific policy by its index from a JSON file.
+        
+        Args:
+            - file_name: The name of the JSON file to load from.
+            - policy_index: The index of the policy to execute.
+        """
+        all_policies = self.load_all_policies_from_json(file_name)
+        
+        if policy_index < 0 or policy_index >= len(all_policies):
+            print("Error: Índice fuera de rango.")
+            return
+
+        policy = all_policies[policy_index]
+        coordinates = policy["Coordinates"]
+        set_pairs = policy["SetPairs"]
+        
+        set_pairs = list(set_pairs)[1:]  
+        
+        merged_coordinates = [coordinates[0]] + set_pairs + [coordinates[1]]
+        
+        print("Executing Task Policy")
+        print("Coordinates:", coordinates)
+        print("Set Pairs:", set_pairs)
+        print(f"Trajectory: {merged_coordinates} ")
+        
+        for idx, coord in enumerate(merged_coordinates):
+            visual_input = somVisual.get_weights()[coord[0], coord[1]]
+            visual_input = np.round(visual_input, 4)
+            
+            motor_angles_coord = hebbian_table.getConectionsFromSOM1(visual_input)
+            
+            print(f"Point {idx}: {tools.denormalize_vector(visual_input, gps_data)}")
+            if motor_angles_coord is not None:
+                rotation_angles = tools.denormalize_vector(
+                    somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data
+                )
+                
+                self.robot.MoveArm(rotation_angles)
+                real_coords = self.robot.getRelativeCoords()
+                print(real_coords)
+        
+
             
     def remove_task(self, task_idx, task_dictionary, json_file):
         """
