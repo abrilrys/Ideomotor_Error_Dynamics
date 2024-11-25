@@ -2,6 +2,7 @@ import numpy as np
 import random
 import tools
 import csv
+import heapq
 
 
 motor_data = []
@@ -43,153 +44,340 @@ class IntrinsicMotivation:
         #self.print_task_dict()
         #print(self.buffers)
     
-    def initDict(self): 
-        #iterate until the task dictionary is correctly initialized (with executable goals and starting points)
-        while(1):
-            self.task_dictionary=self.initialize_task_dictionary()
-            if(self.task_dictionary!= None):
-                break
+    # def initDict(self): 
+    #     #iterate until the task dictionary is correctly initialized (with executable goals and starting points)
+    #     while(1):
+    #         self.task_dictionary=self.initialize_task_dictionary()
+    #         if(self.task_dictionary!= None):
+    #             break
             
-        #get the overall task performance
+    #     #get the overall task performance
+    #     self.updateTaskPerformance()
+        
+    def initDict(self): 
+        self.task_dictionary=self.initialize_task_dictionary()
         self.updateTaskPerformance()
         
-    def initialize_task_dictionary(self):
-        """
-         Initializes a dictionary containing task-related data for the robot's SOM-based learning process.
+    # def initialize_task_dictionary(self):
+    #     """
+    #      Initializes a dictionary containing task-related data for the robot's SOM-based learning process.
 
-            The method performs the following steps:
+    #         The method performs the following steps:
             
-            1. Randomly selects 10 unique pairs of coordinates to represent tasks.
-            2. For each task, initializes 4 policies, where each policy contains:
-            - A set of 10 coordinates (the first being one of the task's pair coordinates).
-            - A buffer of length 11, initialized with increasing values.
-            3. For each task and policy, calculates predictive error.
-            5. Updates the policy's buffer with the calculated predictive error for each coordinate.
+    #         1. Randomly selects 10 unique pairs of coordinates to represent tasks.
+    #         2. For each task, initializes 4 policies, where each policy contains:
+    #         - A set of 10 coordinates (the first being one of the task's pair coordinates).
+    #         - A buffer of length 11, initialized with increasing values.
+    #         3. For each task and policy, calculates predictive error.
+    #         5. Updates the policy's buffer with the calculated predictive error for each coordinate.
 
-            Returns:
-            A dictionary containing task data, where each task has its selected coordinate pair, policies and associated buffers.
-        """    
+    #         Returns:
+    #         A dictionary containing task data, where each task has its selected coordinate pair, policies and associated buffers.
+    #     """    
         
-        # Define the dimensions of the SOM
-        som_height = self.somVisual.get_weights().shape[0]  # Number of rows
-        som_width = self.somVisual.get_weights().shape[1]   # Number of columns
+    #     # Define the dimensions of the SOM
+    #     som_height = self.somVisual.get_weights().shape[0]  # Number of rows
+    #     som_width = self.somVisual.get_weights().shape[1]   # Number of columns
         
-        # Generate all possible coordinates
-        all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
+    #     # Generate all possible coordinates
+    #     all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
         
-        # Shuffle the list of coordinates
-        random.shuffle(all_coordinates)
+    #     # Shuffle the list of coordinates
+    #     random.shuffle(all_coordinates)
         
-        # Select 10 unique pairs of coordinates without repetition
-        selected_pairs = []
-        selected_pairs_count = 0
+    #     # Select 10 unique pairs of coordinates without repetition
+    #     selected_pairs = []
+    #     selected_pairs_count = 0
         
-        self.numberOfTasks = 10
+    #     self.numberOfTasks = 10
         
         
-        while selected_pairs_count < self.numberOfTasks:
-            # Select two random coordinates
-            coord1 = self.find_executable_neuron(all_coordinates)
-            coord2 = self.find_executable_neuron(all_coordinates)
+    #     while selected_pairs_count < self.numberOfTasks:
+    #         # Select two random coordinates
+    #         coord1 = self.find_executable_neuron(all_coordinates)
+    #         coord2 = self.find_executable_neuron(all_coordinates)
             
-            # Ensure the pair is unique and not repeated
-            if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
-                selected_pairs.append((coord1, coord2))
-                selected_pairs_count += 1
+    #         # Ensure the pair is unique and not repeated
+    #         if coord1 != coord2 and (coord1, coord2) not in selected_pairs and (coord2, coord1) not in selected_pairs:
+    #             selected_pairs.append((coord1, coord2))
+    #             selected_pairs_count += 1
         
-        # Create a dictionary to store the data
-        data_dict = {}
+    #     # Create a dictionary to store the data
+    #     data_dict = {}
         
-        self.numberOfPolicies = 4
-        self.lengthOfPolicies = 10
+    #     self.numberOfPolicies = 4
+    #     self.lengthOfPolicies = 10
         
-        lengthOfBuffers = self.lengthOfBuffers
+    #     lengthOfBuffers = self.lengthOfBuffers
         
-        # Populate the dictionary with selected pairs, associated sets, and buffers
-        for task_index, pair in enumerate(selected_pairs, start=0):
-            sets_and_buffers = {}
-            for policy_index in range(0, self.numberOfPolicies):
-                set_pairs = []
-                # Add random coordinates not equal to the pair coordinates
-                while len(set_pairs) < self.lengthOfPolicies:
-                    random_coord = random.choice(all_coordinates)
-                    if random_coord != pair[0] and random_coord != pair[1]:
-                        set_pairs.append(random_coord)
+    #     # Populate the dictionary with selected pairs, associated sets, and buffers
+    #     for task_index, pair in enumerate(selected_pairs, start=0):
+    #         sets_and_buffers = {}
+    #         for policy_index in range(0, self.numberOfPolicies):
+    #             set_pairs = []
+    #             # Add random coordinates not equal to the pair coordinates
+    #             while len(set_pairs) < self.lengthOfPolicies:
+    #                 random_coord = random.choice(all_coordinates)
+    #                 if random_coord != pair[0] and random_coord != pair[1]:
+    #                     set_pairs.append(random_coord)
                         
                 
-                set_pairs.insert(0, pair[0])
-                #print(set_pairs)
-                # Initialize buffer with increasing values
-                buffer = []
-                valor = 10
-                while len(buffer) < self.lengthOfBuffers:
-                    buffer.append(valor)
-                    valor += 10
-                # Store the policy with its index
+    #             set_pairs.insert(0, pair[0])
+    #             #print(set_pairs)
+    #             # Initialize buffer with increasing values
+    #             buffer = []
+    #             valor = 10
+    #             while len(buffer) < self.lengthOfBuffers:
+    #                 buffer.append(valor)
+    #                 valor += 10
+    #             # Store the policy with its index
+    #             sets_and_buffers[f"Policy_{policy_index}"] = {
+    #                 "Set": tuple(set_pairs),
+    #                 "Buffer": buffer
+    #             }
+    #             #print(sets_and_buffers)
+    #         # Store the task with its index
+    #         data_dict[f"Task_{task_index}"] = {
+    #             "Coordinates": pair,
+    #             "Sets_and_Buffers": sets_and_buffers
+    #         }
+        
+    #     # Calculate predictive error and update the buffer
+    #     for task, values in data_dict.items():
+    #         pair = values["Coordinates"]
+    #         #visual_goal = tools.denormalize_vector(self.somVisual.get_weights()[pair[1][0], pair[1][1]], gps_data)
+    #         visual_goal = self.somVisual.get_weights()[pair[1][0], pair[1][1]]
+    #         visual_goal=np.round(visual_goal,4)
+    #         motor_angles_goal_coord = self.hebbian_table.getConectionsFromSOM1(visual_goal)
+                    
+    #         if motor_angles_goal_coord is not None:
+    #             rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_goal_coord[0], motor_angles_goal_coord[1]], motor_data)
+    #             real_goal = self.robot.getRealGpsGoal(rotation_angles)
+    #         else:
+    #             print("Goal not reachable, changing task")
+    #             return None
+                        
+                        
+    #         for policy, policy_data in values["Sets_and_Buffers"].items():
+    #             set_pairs = policy_data["Set"]
+    #             buffer = policy_data["Buffer"]
+                
+    #             # Calculate predictive error for each coordinate in set_pairs
+    #             for idx, coord in enumerate(set_pairs):
+    #                 #visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
+    #                 visual_input=self.somVisual.get_weights()[coord[0], coord[1]]
+    #                 visual_input=np.round(visual_input,4)
+    #                 motor_angles_coord = self.hebbian_table.getConectionsFromSOM1(visual_input)
+    #                 if motor_angles_coord is not None:
+    #                     rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
+    #                     # Assume the final goal is the second coordinate of the pair
+    #                     predictive_error = self.robot.GetPredError(rotation_angles, real_goal)
+                        
+    #                     # Store predictive error in the buffer
+    #                     if idx < len(buffer):  # Ensure we don't go out of bounds
+    #                         buffer[idx] = predictive_error  
+        
+    #     # List to store the buffers
+    #     feature_vectors = []
+        
+    #     # Loop through data_dict to extract only the buffers
+    #     for task, values in data_dict.items():
+    #         for policy, policy_data in values["Sets_and_Buffers"].items():
+    #             buffer = policy_data["Buffer"]
+    #             feature_vectors.append(buffer)  # Append only the buffer
+                
+    #     self.buffers=feature_vectors
+        
+    #     # Convert the list of buffers to a NumPy array
+    #     tasks_array = np.array(feature_vectors)
+    #     # Save the NumPy array into a CSV file
+    #     np.savetxt('tasks_train_dataset.csv', tasks_array, delimiter=',', fmt='%.6f')
+        
+    #     print("Buffers saved into 'tasks_train_dataset.csv'")
+    #     return data_dict
+    
+    def expand_viable_area(self,start, end, current_area, som_height, som_width, executable_map, step=1):
+        """Expande el área viable si no hay suficientes puntos."""
+        min_row = max(min(start[0], end[0]) - step, 0)
+        max_row = min(max(start[0], end[0]) + step, som_height - 1)
+        min_col = max(min(start[1], end[1]) - step, 0)
+        max_col = min(max(start[1], end[1]) + step, som_width - 1)
+
+        expanded_area = set(
+            (x, y)
+            for x in range(min_row, max_row + 1)
+            for y in range(min_col, max_col + 1)
+            if executable_map[x][y] == 0 and (x, y) not in current_area and (x,y) != start and (x,y)!= end
+        )
+        return expanded_area
+    
+    def initialize_task_dictionary(self):
+        som_height = self.somVisual.get_weights().shape[0]
+        som_width = self.somVisual.get_weights().shape[1]
+        executable_map = self.generate_executable_map(som_height, som_width)
+        all_coordinates = [(row, col) for row in range(som_height) for col in range(som_width)]
+
+        data_dict = {}
+        self.numberOfTasks = 10
+        self.numberOfPolicies = 4
+        self.lengthOfPolicies = 10  # 10 puntos intermedios
+
+
+        for task_index in range(self.numberOfTasks):
+            while True:
+                start = self.find_executable_neuron(all_coordinates)
+                end = self.find_executable_neuron(all_coordinates)
+
+                if start != end:
+                    base_path = self.astar_with_length(executable_map, start, end, self.lengthOfPolicies+2)
+                    print(type(base_path))
+                    if base_path and len(base_path) == self.lengthOfPolicies + 2:  # A* incluye inicio y fin
+                        base_path = base_path[1:-1]  # Excluir inicio y fin
+                        break
+
+            sets_and_buffers = {}
+            for policy_index in range(self.numberOfPolicies):
+                if policy_index == 0:
+                    # Primera política: exactamente el camino A*
+                    policy_path = [start] + base_path 
+                else:
+                    # Variar ligeramente las demás políticas
+                    policy_path = [start]  # Añadir inicio
+                    viable_points = set(
+                        (x, y)
+                        for x in range(min(start[0], end[0]), max(start[0], end[0]) + 1)
+                        for y in range(min(start[1], end[1]), max(start[1], end[1]) + 1)
+                        if executable_map[x][y] == 0 and (x, y) not in policy_path and (x,y) != end
+                    )
+
+                    # Expandir el área hasta encontrar suficientes puntos
+                    step = 1
+                    while len(viable_points) < self.lengthOfPolicies:
+                        new_points = self.expand_viable_area(start, end, policy_path, som_height, som_width, executable_map, step)
+                        viable_points.update(new_points)
+                        step += 1
+                        if step > som_height + som_width:  # Prevenir ciclos infinitos
+                            raise ValueError(
+                                f"No se encontraron suficientes puntos viables para la tarea {task_index}."
+                            )
+
+                    # Seleccionar puntos únicos al azar
+                    policy_path += random.sample(viable_points, self.lengthOfPolicies)
+
                 sets_and_buffers[f"Policy_{policy_index}"] = {
-                    "Set": tuple(set_pairs),
-                    "Buffer": buffer
+                    "Set": tuple(policy_path),
+                    "Buffer": [10 * (i + 1) for i in range(self.lengthOfBuffers)]  # Buffer inicial
                 }
-                #print(sets_and_buffers)
-            # Store the task with its index
+
             data_dict[f"Task_{task_index}"] = {
-                "Coordinates": pair,
+                "Coordinates": (start, end),
                 "Sets_and_Buffers": sets_and_buffers
             }
-        
-        # Calculate predictive error and update the buffer
-        for task, values in data_dict.items():
-            pair = values["Coordinates"]
-            #visual_goal = tools.denormalize_vector(self.somVisual.get_weights()[pair[1][0], pair[1][1]], gps_data)
-            visual_goal = self.somVisual.get_weights()[pair[1][0], pair[1][1]]
-            visual_goal=np.round(visual_goal,4)
-            motor_angles_goal_coord = self.hebbian_table.getConectionsFromSOM1(visual_goal)
-                    
-            if motor_angles_goal_coord is not None:
-                rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_goal_coord[0], motor_angles_goal_coord[1]], motor_data)
-                real_goal = self.robot.getRealGpsGoal(rotation_angles)
-            else:
-                print("Goal not reachable, changing task")
-                return None
-                        
-                        
-            for policy, policy_data in values["Sets_and_Buffers"].items():
-                set_pairs = policy_data["Set"]
-                buffer = policy_data["Buffer"]
-                
-                # Calculate predictive error for each coordinate in set_pairs
-                for idx, coord in enumerate(set_pairs):
-                    #visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
-                    visual_input=self.somVisual.get_weights()[coord[0], coord[1]]
-                    visual_input=np.round(visual_input,4)
-                    motor_angles_coord = self.hebbian_table.getConectionsFromSOM1(visual_input)
-                    if motor_angles_coord is not None:
-                        rotation_angles = tools.denormalize_vector(self.somAngles.get_weights()[motor_angles_coord[0], motor_angles_coord[1]], motor_data)
-                        # Assume the final goal is the second coordinate of the pair
-                        predictive_error = self.robot.GetPredError(rotation_angles, real_goal)
-                        
-                        # Store predictive error in the buffer
-                        if idx < len(buffer):  # Ensure we don't go out of bounds
-                            buffer[idx] = predictive_error  
-        
-        # List to store the buffers
-        feature_vectors = []
-        
-        # Loop through data_dict to extract only the buffers
-        for task, values in data_dict.items():
-            for policy, policy_data in values["Sets_and_Buffers"].items():
-                buffer = policy_data["Buffer"]
-                feature_vectors.append(buffer)  # Append only the buffer
-                
-        self.buffers=feature_vectors
-        
-        # Convert the list of buffers to a NumPy array
-        tasks_array = np.array(feature_vectors)
-        # Save the NumPy array into a CSV file
-        np.savetxt('tasks_train_dataset.csv', tasks_array, delimiter=',', fmt='%.6f')
-        
-        print("Buffers saved into 'tasks_train_dataset.csv'")
+
         return data_dict
+
+
+
+    def generate_policies_with_unique_points(self,map_2d, start, end, num_policies):
+        """
+        Genera varias políticas basadas en A*, asegurando que los puntos son únicos,
+        excepto el primero, que debe coincidir con el inicio.
+        """
+        policies = []
+
+        # Generar la política A* pura
+        astar_path = self.astar_with_length(map_2d, start, end, self.lengthOfPolicies)
+        if not astar_path:
+            raise ValueError("No se pudo generar un camino válido con A*.")
+        policies.append(astar_path)
+
+        # Generar políticas variantes
+        max_attempts = 100  # Límite de intentos para evitar bucles infinitos
+        for _ in range(num_policies - 1):
+            attempt = 0
+            while attempt < max_attempts:
+                attempt += 1
+                variant = [start]  # Inicia con el punto inicial
+                used_positions = set(variant)  # Mantiene un registro de los puntos usados
+                for point in astar_path[1:-1]:  # Iterar entre el inicio (excluido) y el final (excluido)
+                    # Generar un vecino válido dentro del rango de la meta
+                    valid_neighbors = [
+                        (point[0] + dx, point[1] + dy)
+                        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]
+                        if (0 <= point[0] + dx < len(map_2d) and
+                            0 <= point[1] + dy < len(map_2d[0]) and
+                            map_2d[point[0] + dx][point[1] + dy] == 0 and
+                            (point[0] + dx, point[1] + dy) not in used_positions and
+                            (point[0] + dx, point[1] + dy) != end)  # No permitir puntos repetidos ni el final
+                    ]
+                    if valid_neighbors:
+                        chosen_neighbor = random.choice(valid_neighbors)
+                        variant.append(chosen_neighbor)
+                        used_positions.add(chosen_neighbor)
+                    else:
+                        # Si no hay vecinos válidos, usar el punto original (pero debe ser único)
+                        if point not in used_positions and point != end:
+                            variant.append(point)
+                            used_positions.add(point)
+                        else:
+                            break  # Salir si no se puede generar un camino único
+
+                # Si la longitud es la deseada y todos los puntos son únicos, aceptar
+                if len(variant) == self.lengthOfPolicies and len(set(variant)) == len(variant):
+                    policies.append(variant)  # Añadir el fin al final
+                    break
+
+            # Si no se generó una política válida, usar A* como respaldo
+            if attempt == max_attempts:
+                print(f"Advertencia: No se pudo generar una variante única. Usando A* como política {len(policies)}.")
+                policies.append(astar_path)
+
+        return policies
+
+
+    def astar_with_length(self,map_2d, start, end, path_length):
+        """A* que detiene la búsqueda si encuentra un camino de longitud específica."""
+        open_list = []
+        closed_list = set()
+        start_node = Node(start)
+        heapq.heappush(open_list, start_node)
+
+        while open_list:
+            current_node = heapq.heappop(open_list)
+            closed_list.add(current_node.position)
+
+            # Verificar si el camino es de la longitud deseada
+            if len(self.reconstruct_path(current_node)) == path_length:
+                return self.reconstruct_path(current_node)
+
+            # Generar vecinos
+            neighbors = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+            for dx, dy in neighbors:
+                neighbor_pos = (current_node.position[0] + dx, current_node.position[1] + dy)
+
+                if (0 <= neighbor_pos[0] < len(map_2d) and
+                    0 <= neighbor_pos[1] < len(map_2d[0]) and
+                    map_2d[neighbor_pos[0]][neighbor_pos[1]] == 0 and
+                    neighbor_pos not in closed_list):
+
+                    neighbor_node = Node(neighbor_pos, current_node)
+                    neighbor_node.g = current_node.g + 1
+                    neighbor_node.h = heuristic(neighbor_pos, end)
+                    neighbor_node.f = neighbor_node.g + neighbor_node.h
+
+                    heapq.heappush(open_list, neighbor_node)
+
+        return None  # No se encontró camino de longitud exacta
+
+
+    def reconstruct_path(self,node):
+        """Reconstruye el camino desde el nodo actual hasta el inicio."""
+        path = []
+        while node:
+            path.append(node.position)
+            node = node.parent
+        return path[::-1]
+
     
     def find_executable_neuron(self, all_coordinates):
         """
@@ -210,7 +398,17 @@ class IntrinsicMotivation:
                 return initial_goal
             # Pick a new coordinate if the goal is not executable
             initial_goal = random.choice(all_coordinates)
-         
+
+    def generate_executable_map(self, som_height, som_width):
+        """Genera un mapa de ejecutabilidad donde 0 es transitable y 1 es obstáculo."""
+        executable_map = np.ones((som_height, som_width), dtype=int)
+        for row in range(som_height):
+            for col in range(som_width):
+                visual_goal = self.somVisual.get_weights()[row, col]
+                if self.hebbian_table.getConectionsFromSOM1(visual_goal) is not None:
+                    executable_map[row, col] = 0  # Es ejecutable
+        return executable_map
+
     def updateTaskPerformance(self):
         overallTaskPerformance = []
 
@@ -276,7 +474,7 @@ class IntrinsicMotivation:
         for idx, coord in enumerate(set_pairs):
             #visual_input = tools.denormalize_vector(self.somVisual.get_weights()[coord[0], coord[1]], gps_data)
             visual_input = self.somVisual.get_weights()[coord[0], coord[1]]
-            visual_input=np.round(visual_input,4)
+            #visual_input=np.round(visual_input,4)
             #print(f"Visual input= {coord[0]}, {coord[1]}")
             motor_angles_coord = self.hebbian_table.getConectionsFromSOM1(visual_input)
             
@@ -688,3 +886,19 @@ class IntrinsicMotivation:
 
         slopes = np.array(slopes)
         return slopes	
+    
+class Node:
+    def __init__(self, position, parent=None):
+        self.position = position  # (x, y)
+        self.parent = parent
+        self.g = 0  # Coste desde el inicio hasta el nodo actual
+        self.h = 0  # Heurística (distancia estimada al objetivo)
+        self.f = 0  # Costo total (g + h)
+
+    def __lt__(self, other):
+        return self.f < other.f
+
+
+def heuristic(a, b):
+    """Calcula la distancia Manhattan entre dos puntos a y b."""
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])

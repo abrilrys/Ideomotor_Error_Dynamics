@@ -1,4 +1,7 @@
 import numpy as np
+import os
+import shutil
+import matplotlib.pyplot as plt
 
 #denormalize a vector given dataset
 def denormalize_vector(normalized_vector, data):
@@ -81,4 +84,72 @@ def min_max_normalize_with_data(vector, data):
     
     # Return the normalized vector
     return normalized_vector
+
+
+def visualize_loaded_policies(all_policies, grid_size):
+    folder_path = "learnt_policies"
+    
+    if os.path.exists(folder_path):
+        shutil.rmtree(folder_path)
+    os.makedirs(folder_path)
+
+    idx = 0
+    for policy in all_policies:
+        coordinates = policy["Coordinates"]
+        set_pairs = policy["SetPairs"]  
+
+        start, end = coordinates
+        set_pairs.append(end)
+        path_coords = np.array(set_pairs)
+
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.set_xlim(-0.5, grid_size[1] - 0.5)
+        ax.set_ylim(-0.5, grid_size[0] - 0.5)  
+
+        ax.set_xticks(np.arange(grid_size[1]))
+        ax.set_yticks(np.arange(grid_size[0]))
+        
+        ax.set_xticks(np.arange(-0.5, grid_size[1], 1), minor=True)
+        ax.set_yticks(np.arange(-0.5, grid_size[0], 1), minor=True)
+        
+        ax.grid(which="minor", color="gray", linestyle="-", linewidth=0.5)
+        ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+
+        ax.plot(path_coords[:, 0], path_coords[:, 1], 
+                marker="o", color="blue", label=f"Policy Path")  
+
+        for i, (x, y) in enumerate(path_coords):
+            ax.text(x, y, str(i), color="red", ha="center", va="center", fontweight="bold", fontsize=8)
+
+        ax.set_title(f"Policy: Start: {start}, End: {end}")
+        ax.legend(loc="upper right")
+
+        file_name = os.path.join(folder_path, f"policy_{idx}.png")
+        plt.savefig(file_name)
+        plt.close()
+
+        print(f"Saved: {file_name}")
+
+        idx += 1
+
+def totalerrorindataSOM(som, train_data):
+    total_error = 0
+    train_data_normalized = min_max_normalize(train_data)
+    for data, original in zip(train_data_normalized, train_data):
+        
+        weights = som.get_weights()
+        
+        # Encontrar el BMU
+        bmu = som.winner(data)  
+        bmu_position = weights[bmu[0], bmu[1]]
+        
+        # Desnormalizar el vector del BMU
+        bmu_position_denormalized = denormalize_vector(bmu_position, train_data)
+        
+        # Calcular la distancia Euclidiana entre la posición original y la del BMU
+        distance = np.linalg.norm(original - bmu_position_denormalized)
+        total_error += distance
+
+    average_error = total_error / len(train_data)
+    return average_error
     

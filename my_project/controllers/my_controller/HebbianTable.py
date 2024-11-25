@@ -35,7 +35,7 @@ class HebbianTable:
         #sn.get_weights().shape[0]*sn.get_weights().shape[1] = total number of neurons in the som
         self.som_size1 = s1.get_weights().shape[0]*s1.get_weights().shape[1]
         self.som_size2 = s2.get_weights().shape[0]*s2.get_weights().shape[1]
-        self.hasTam = 50000
+        self.hasTam = 135000
         self.crea_Hash(self.hasTam)
 
     def loadFromFile(self, filename):
@@ -235,7 +235,7 @@ class HebbianTable:
         value based on the Hebbian learning table.
 
         Args:
-            -som1_vector (array-like): The input vector for which to find the winner neuron in SOM1.
+            -som1_vector (array-like): The input vector for which to find the winner neuron in SOM1 (must be normalized)
 
         Returns:
             tuple or None: The coordinates of the neuron in SOM2 that has the minimum activation connected to the winner of SOM1, 

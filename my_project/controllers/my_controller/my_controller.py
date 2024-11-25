@@ -14,6 +14,7 @@ import tools
 import IntrinsicMotivation as intrinsic
 import Experiment as experimentation
 
+import matplotlib.pyplot as plt
 
 
 motor_tolerance=0.00001
@@ -294,7 +295,7 @@ class Nao (Robot):
         """        
         random.seed(10)
             
-        max_iterations = 5000
+        max_iterations = 100000
         print("Initializing hebbian table training for "+ str(max_iterations) + " iterations. \t")
 
          # Mean and standard deviation for the normal distribution
@@ -431,12 +432,13 @@ def generateAnglesSOM():
     # Remove first column 
     data = data[data.columns[1:]]
     
-    # Data normalization
-    data = tools.min_max_normalize(data)
-    #print(type(data))
-   
+    normalized_data = tools.min_max_normalize(data)
     
-    data = data.values
+    normalized_df = pd.DataFrame(normalized_data, columns=data.columns)
+    normalized_df.to_csv('normalized_motor_angles.csv', index=False)
+    print("Normalized data saved to 'normalized_motor_angles.csv'.")
+
+    data = normalized_data.values
     #print(data)
     #print(type(data))
     # Initialization and training
@@ -446,12 +448,12 @@ def generateAnglesSOM():
     # Determine the grid size
     grid_size = int(math.ceil(math.sqrt(num_neurons)))
 
-    somAngles = MiniSom(grid_size, grid_size, data.shape[1], sigma=3, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
+    somAngles = MiniSom(grid_size, grid_size, data.shape[1], sigma=1, learning_rate=.3, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
 
     somAngles.pca_weights_init(data)
-    somAngles.train(data, 1000, verbose=True)  # random training
+    somAngles.train(data, 10000, verbose=True)  # random training
     
-    print("SOM Sensorial trained")
+    print("SOM Motor trained")
     
     # saving the som
     with open('somAngles.p', 'wb') as outfile:
@@ -523,10 +525,10 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
 ####
 #print(motor_data)
 
-    
+
 # ####train SOMS
-# generateAnglesSOM()
-# generateVisualSOM()
+#generateAnglesSOM()
+#generateVisualSOM()
 
 #####load SOMS           
 with open('somVisual.p', 'rb') as infile:
@@ -535,12 +537,18 @@ with open('somVisual.p', 'rb') as infile:
 with open('somAngles.p', 'rb') as infile:
     somAngles = pickle.load(infile)
 
-#####train hebbian table
-# hebbian_table = hebbian.HebbianTable()
-# hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
-# robot.hebbianTrain()
-# hebbian_table.saveTable("hebbian_table_new.txt")
+
+
+print("Distorsión de la cuantización vectorial del SOM Visual: " , tools.totalerrorindataSOM(somVisual, gps_data))
+print("Distorsión de la cuantización vectorial del SOM Motor: " , tools.totalerrorindataSOM(somAngles, motor_data))
+
+#####train hebbian table
+hebbian_table = hebbian.HebbianTable()
+#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
+
+#robot.hebbianTrain()
+#hebbian_table.saveTable("hebbian_table_new.txt")
 
 
 
@@ -554,14 +562,32 @@ hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 hebbian_table.loadFromFile("hebbian_table_new.txt")
 
 #robot.hebbianTest(1)
-            
-exp= experimentation.Experiment(0.1, 1500, robot)
-#exp.run_exp()
-if os.path.exists("learnt_policies.json"):
-    # exp.execute_loaded_policies("learnt_policies.json")
-    exp.execute_policy_by_index("learnt_policies.json",14)
-else:
-    print("No tasks were learnt in this run")
+
+
+
+
+# grid_size = (19, 19)  
+# print("running")
+ #intrinsic_motivation = intrinsic.IntrinsicMotivation(somVisual, somAngles, hebbian_table, robot)
+# task_dict=intrinsic_motivation.initialize_task_dictionary()    
+# print(task_dict)   
+# visualize_individual_paths(task_dict, grid_size)        
+
+
+# exp= experimentation.Experiment(0.1, 700, robot)
+# exp.run_exp()
+# if os.path.exists("learnt_policies.json"):
+#     exp.execute_loaded_policies("learnt_policies.json")
+#     #exp.execute_policy_by_index("learnt_policies.json",14)
+# else:
+#     print("No tasks were learnt in this run")
+
+# all_policies = exp.load_all_policies_from_json("learnt_policies.json")
+
+# # Visualiza las políticas cargadas
+# tools.visualize_loaded_policies(all_policies, grid_size)
+    
+
 
 # while (1):
 #     rotation_angles=[1,0,0,2]
