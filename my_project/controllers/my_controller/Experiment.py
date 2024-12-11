@@ -54,7 +54,7 @@ class Experiment:
         return task_idx, policy_idx
     
     def run_exp(self):
-        """_
+        """
         Execute the learning experiment over a specified duration.
         """        
         self.clear_previous_file("task_dictionary.txt")

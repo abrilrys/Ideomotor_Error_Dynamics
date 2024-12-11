@@ -176,10 +176,10 @@ class Nao (Robot):
         self.minRElbowYawPosition=self.RElbowYaw.getMinPosition();
         self.maxRElbowRollPosition=self.RElbowRoll.getMaxPosition();
         self.minRElbowRollPosition=self.RElbowRoll.getMinPosition();
-        #print("Shoulder Pitch max:", self.maxRShoulderPitchPosition, "min :", self.minRShoulderPitchPosition);
-        #print("Shoulder Roll max:", self.maxRShoulderRollPosition, "min :", self.minRShoulderRollPosition);
-        #print("Elbow Yaw Pitch max:", self.maxRElbowYawPosition, "min :", self.minRElbowYawPosition);
-        #print("Elbow Roll max:", self.maxRElbowRollPosition, "min :", self.minRElbowRollPosition);
+        print("Shoulder Pitch max:", self.maxRShoulderPitchPosition, "min :", self.minRShoulderPitchPosition);
+        print("Shoulder Roll max:", self.maxRShoulderRollPosition, "min :", self.minRShoulderRollPosition);
+        print("Elbow Yaw Pitch max:", self.maxRElbowYawPosition, "min :", self.minRElbowYawPosition);
+        print("Elbow Roll max:", self.maxRElbowRollPosition, "min :", self.minRElbowRollPosition);
         
         self.LShoulderPitch = self.getDevice("LShoulderPitch")
 
@@ -286,7 +286,7 @@ class Nao (Robot):
             self.setArmAngle(rotation_angles[0], rotation_angles[1], rotation_angles[2], rotation_angles[3])
             #time.sleep(1)
             
-            if (abs(self.RShoulderPitchPS.getValue()-self.RShoulderPitch.getTargetPosition()) < motor_tolerance) and (abs(self.RShoulderRollPS.getValue()-self.RShoulderRoll.getTargetPosition()) < motor_tolerance) and (abs(self.RElbowRollPS.getValue()-self.RElbowRoll.getTargetPosition()) < motor_tolerance) and (abs(self.RShoulderPitchPS.getValue()-self.RShoulderPitch.getTargetPosition()) < motor_tolerance):
+            if (abs(self.RShoulderPitchPS.getValue()-self.RShoulderPitch.getTargetPosition()) < motor_tolerance) and (abs(self.RShoulderRollPS.getValue()-self.RShoulderRoll.getTargetPosition()) < motor_tolerance) and (abs(self.RElbowRollPS.getValue()-self.RElbowRoll.getTargetPosition()) < motor_tolerance) and (abs(self.RElbowYawPS.getValue()-self.RElbowYaw.getTargetPosition()) < motor_tolerance):
                 break
         
     def hebbianTrain(self):
@@ -295,7 +295,7 @@ class Nao (Robot):
         """        
         random.seed(10)
             
-        max_iterations = 100000
+        max_iterations = 10000 #hebbian iterations
         print("Initializing hebbian table training for "+ str(max_iterations) + " iterations. \t")
 
          # Mean and standard deviation for the normal distribution
@@ -315,16 +315,16 @@ class Nao (Robot):
         #loop_delay = 0.5  # Adjust the delay as needed
         for i in range(max_iterations):
             # Generate random angles within the specified range
-            randomShoulderPitch = round(random.gauss(mu_ShoulderPitch, sigma_ShoulderPitch), 4)
-            randomShoulderRoll = round(random.gauss(mu_ShoulderRoll, sigma_ShoulderRoll), 4)
-            randomElbowYaw = round(random.gauss(mu_ElbowYaw, sigma_ElbowYaw), 4)
-            randomElbowRoll = round(random.gauss(mu_ElbowRoll, sigma_ElbowRoll), 4)
+            randomShoulderPitch = random.gauss(mu_ShoulderPitch, sigma_ShoulderPitch)
+            randomShoulderRoll = random.gauss(mu_ShoulderRoll, sigma_ShoulderRoll)
+            randomElbowYaw = random.gauss(mu_ElbowYaw, sigma_ElbowYaw)
+            randomElbowRoll = random.gauss(mu_ElbowRoll, sigma_ElbowRoll)
             
             # Ensure the angles are within the specified range
-            randomShoulderPitch = max(min(randomShoulderPitch, self.maxRShoulderPitchPosition), self.minRShoulderPitchPosition)
-            randomShoulderRoll = max(min(randomShoulderRoll, self.maxRShoulderRollPosition), self.minRShoulderRollPosition)
-            randomElbowYaw = max(min(randomElbowYaw, self.maxRElbowYawPosition), self.minRElbowYawPosition)
-            randomElbowRoll = max(min(randomElbowRoll, self.maxRElbowRollPosition), self.minRElbowRollPosition)
+            randomShoulderPitch = np.round(max(min(randomShoulderPitch, self.maxRShoulderPitchPosition), self.minRShoulderPitchPosition),4)
+            randomShoulderRoll = np.round(max(min(randomShoulderRoll, self.maxRShoulderRollPosition), self.minRShoulderRollPosition),4)
+            randomElbowYaw = np.round(max(min(randomElbowYaw, self.maxRElbowYawPosition), self.minRElbowYawPosition),4)
+            randomElbowRoll = np.round(max(min(randomElbowRoll, self.maxRElbowRollPosition), self.minRElbowRollPosition),)
 
             motor_entry = [randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
             # Set the random angles using the function
@@ -381,16 +381,17 @@ class Nao (Robot):
             for i in range (max_iterations):
                 try:
                     # Generate random angles within the specified range
-                    randomShoulderPitch = round(random.gauss(mu_ShoulderPitch, sigma_ShoulderPitch), 4)
-                    randomShoulderRoll = round(random.gauss(mu_ShoulderRoll, sigma_ShoulderRoll), 4)
-                    randomElbowYaw = round(random.gauss(mu_ElbowYaw, sigma_ElbowYaw), 4)
-                    randomElbowRoll = round(random.gauss(mu_ElbowRoll, sigma_ElbowRoll), 4)
+                    randomShoulderPitch = random.gauss(mu_ShoulderPitch, sigma_ShoulderPitch)
+                    randomShoulderRoll = random.gauss(mu_ShoulderRoll, sigma_ShoulderRoll)
+                    randomElbowYaw = random.gauss(mu_ElbowYaw, sigma_ElbowYaw)
+                    randomElbowRoll = random.gauss(mu_ElbowRoll, sigma_ElbowRoll)
+        
                     
                     # Ensure the angles are within the specified range
-                    randomShoulderPitch = max(min(randomShoulderPitch, self.maxRShoulderPitchPosition), self.minRShoulderPitchPosition)
-                    randomShoulderRoll = max(min(randomShoulderRoll, self.maxRShoulderRollPosition), self.minRShoulderRollPosition)
-                    randomElbowYaw = max(min(randomElbowYaw, self.maxRElbowYawPosition), self.minRElbowYawPosition)
-                    randomElbowRoll = max(min(randomElbowRoll, self.maxRElbowRollPosition), self.minRElbowRollPosition)
+                    randomShoulderPitch = np.round(max(min(randomShoulderPitch, self.maxRShoulderPitchPosition), self.minRShoulderPitchPosition),4)
+                    randomShoulderRoll = np.round(max(min(randomShoulderRoll, self.maxRShoulderRollPosition), self.minRShoulderRollPosition),4)
+                    randomElbowYaw = np.round(max(min(randomElbowYaw, self.maxRElbowYawPosition), self.minRElbowYawPosition),4)
+                    randomElbowRoll = np.round(max(min(randomElbowRoll, self.maxRElbowRollPosition), self.minRElbowRollPosition),4)
                     
                     rotation_angles=[randomShoulderPitch, randomShoulderRoll, randomElbowYaw, randomElbowRoll]
                     # Set the random angles using the function
@@ -447,10 +448,10 @@ def generateAnglesSOM():
     num_neurons = 5 * math.sqrt(num_samples)
     # Determine the grid size
     grid_size = int(math.ceil(math.sqrt(num_neurons)))
+    grid_size=70
+    somAngles = MiniSom(grid_size, grid_size, data.shape[1], sigma=3, learning_rate=.5, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
 
-    somAngles = MiniSom(grid_size, grid_size, data.shape[1], sigma=1, learning_rate=.3, neighborhood_function='gaussian', random_seed=0, topology='rectangular')
-
-    somAngles.pca_weights_init(data)
+    somAngles.random_weights_init(data)
     somAngles.train(data, 10000, verbose=True)  # random training
     
     print("SOM Motor trained")
@@ -482,12 +483,12 @@ def generateVisualSOM():
     num_neurons = 5 * math.sqrt(num_samples)
     # Determine the grid size
     grid_size = int(math.ceil(math.sqrt(num_neurons)))
-    
+    grid_size=70
     somVisual = MiniSom(grid_size, grid_size, data.shape[1], sigma=3, learning_rate=.5, 
                   neighborhood_function='gaussian', random_seed=0, topology='rectangular')
     
-    somVisual.pca_weights_init(data)
-    somVisual.train(data, 1000, verbose=True)  # random training
+    somVisual.random_weights_init(data)
+    somVisual.train(data, 10000, verbose=True)  # random training
     
     print("SOM Visual trained")
     
@@ -502,7 +503,7 @@ somVisual = None
 
 # create the Robot instance and run main loop
 robot = Nao()
-# robot.run()
+#robot.run()
 
 ####train data
 motor_data = []
@@ -526,9 +527,9 @@ with open("gps_hand.csv", "r", newline='') as gps_csvfile:
 #print(motor_data)
 
 
-# ####train SOMS
-#generateAnglesSOM()
-#generateVisualSOM()
+####train SOMS
+# generateAnglesSOM()
+# generateVisualSOM()
 
 #####load SOMS           
 with open('somVisual.p', 'rb') as infile:
@@ -540,15 +541,15 @@ with open('somAngles.p', 'rb') as infile:
 
 
 
-print("Distorsión de la cuantización vectorial del SOM Visual: " , tools.totalerrorindataSOM(somVisual, gps_data))
-print("Distorsión de la cuantización vectorial del SOM Motor: " , tools.totalerrorindataSOM(somAngles, motor_data))
+print("Distorsión de la cuantización vectorial del SOM Visual después de la denormalización del bmu: " , tools.totalerrorindataSOM(somVisual, gps_data))
+print("Distorsión de la cuantización vectorial del SOM Motor después de la denormalización del bmu: " , tools.totalerrorindataSOM(somAngles, motor_data))
 
-#####train hebbian table
+####train hebbian table
 hebbian_table = hebbian.HebbianTable()
-#hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
+# hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
-#robot.hebbianTrain()
-#hebbian_table.saveTable("hebbian_table_new.txt")
+# robot.hebbianTrain()
+# hebbian_table.saveTable("hebbian_table_new.txt")
 
 
 
@@ -566,26 +567,26 @@ hebbian_table.loadFromFile("hebbian_table_new.txt")
 
 
 
-# grid_size = (19, 19)  
+grid_size = (70, 70)  
 # print("running")
- #intrinsic_motivation = intrinsic.IntrinsicMotivation(somVisual, somAngles, hebbian_table, robot)
+#intrinsic_motivation = intrinsic.IntrinsicMotivation(somVisual, somAngles, hebbian_table, robot)
 # task_dict=intrinsic_motivation.initialize_task_dictionary()    
 # print(task_dict)   
 # visualize_individual_paths(task_dict, grid_size)        
 
 
-# exp= experimentation.Experiment(0.1, 700, robot)
-# exp.run_exp()
-# if os.path.exists("learnt_policies.json"):
-#     exp.execute_loaded_policies("learnt_policies.json")
-#     #exp.execute_policy_by_index("learnt_policies.json",14)
-# else:
-#     print("No tasks were learnt in this run")
+exp= experimentation.Experiment(0.1, 1500, robot)
+exp.run_exp()
+if os.path.exists("learnt_policies.json"):
+    exp.execute_loaded_policies("learnt_policies.json")
+    #exp.execute_policy_by_index("learnt_policies.json",14)
+else:
+    print("No tasks were learnt in this run")
 
-# all_policies = exp.load_all_policies_from_json("learnt_policies.json")
+all_policies = exp.load_all_policies_from_json("learnt_policies.json")
 
-# # Visualiza las políticas cargadas
-# tools.visualize_loaded_policies(all_policies, grid_size)
+# Visualiza las políticas cargadas
+tools.visualize_loaded_policies(all_policies, grid_size)
     
 
 
