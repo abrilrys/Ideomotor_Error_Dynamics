@@ -71,13 +71,15 @@ class Experiment:
         
         
         buffer_time= deque(maxlen=self.max_len_buffer_behaviour)
+        saved_policies_count = 0  # Track policies with AddCount = 3
         
         #get the best rated task on overall performance (explote)
         task_index = self.intrinsic_motivation.overall_task_performance.index(max(self.intrinsic_motivation.overall_task_performance)) 
                         
-        while time.time() - start_time < self.duration:
+        #while time.time() - start_time < self.duration:
+        while saved_policies_count < 4:
             
-            #print(f"######################################################\n Iteration {it}\n")
+            print(f"######################################################\n Iteration {it}\n")
             #print(f"Previous task {task_index}\n")
             
             if(counter_it_in_task>min_iterations_per_task):
@@ -161,6 +163,14 @@ class Experiment:
                     print("task learnt")
                     self.save_policy_to_json("learnt_policies.json",task_idx, policy_idx, self.intrinsic_motivation.task_dictionary)
                     self.learnt_task_remove(task_idx,self.intrinsic_motivation.task_dictionary,"learnt_policies.json" )
+                    
+                    with open("learnt_policies.json", 'r') as file:
+                        policies = json.load(file)
+                        saved_policies_count = sum(1 for p in policies if p["AddCount"] == 3)
+                    
+                    if saved_policies_count >= 4:
+                        print(f"Experiment completed")
+                        break  # Stop the loop
 
                 if (b1 > 0):
                     counter_bad_behaviour= counter_bad_behaviour+1

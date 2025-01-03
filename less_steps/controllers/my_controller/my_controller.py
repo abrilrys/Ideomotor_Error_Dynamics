@@ -560,7 +560,7 @@ hebbian_table = hebbian.HebbianTable()
 # Inicializar la tabla Hebbiana con las SOMs y un factor de aprendizaje
 hebbian_table.init(somVisual, somAngles, learning_factor=0.1)
 
-hebbian_table.loadFromFile("hebbian_table_new.txt")
+#hebbian_table.loadFromFile("hebbian_table_new.txt")
 
 #robot.hebbianTest(1)
 
@@ -576,10 +576,10 @@ grid_size = (70, 70)
 
 
 exp= experimentation.Experiment(0.1, 5000, robot)
-# exp.run_exp()
+#exp.run_exp()
 if os.path.exists("learnt_policies.json"):
-    exp.execute_loaded_policies("learnt_policies.json")
-    #exp.execute_policy_by_index("learnt_policies.json",14)
+    #exp.execute_loaded_policies("learnt_policies.json")
+    exp.execute_policy_by_index("learnt_policies.json",2)
     all_policies = exp.load_all_policies_from_json("learnt_policies.json")
     # # Visualiza las políticas cargadas
     tools.visualize_loaded_policies(all_policies, grid_size)

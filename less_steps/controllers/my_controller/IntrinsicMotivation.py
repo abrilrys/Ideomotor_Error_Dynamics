@@ -775,7 +775,7 @@ class IntrinsicMotivation:
         buffer = self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"]
         set_pairs = list(self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"])
         
-        #print(f"Set pairs: {set_pairs}")
+        print(f"Set pairs: {set_pairs}")
         first_coord = set_pairs[0]
         #first_buffer = buffer[0]
         
@@ -798,9 +798,16 @@ class IntrinsicMotivation:
             
             #new_coord = random.choice([n for n in valid_neighbors])
             
-            ## Select the neighbor closest to the goal coordinate
-            new_coord = min(valid_neighbors, key=lambda neighbor: np.linalg.norm(np.array(neighbor) - np.array(goal_coord)))
-            # print(f"Changed coord: {coord_to_change} for: {new_coord}")
+            
+            if random.random() < 0.4:
+                # Explore a random neighbor
+                new_coord = random.choice(valid_neighbors)
+            else:
+                # Select the neighbor closest to the goal coordinate
+                new_coord = min(valid_neighbors, key=lambda neighbor: np.linalg.norm(np.array(neighbor) - np.array(goal_coord)))
+
+            # new_coord = min(valid_neighbors, key=lambda neighbor: np.linalg.norm(np.array(neighbor) - np.array(goal_coord)))
+            print(f"Changed coord: {coord_to_change} for: {new_coord}")
             # Replace the old coordinate with the new one
             set_pairs[set_pairs.index(coord_to_change)] = new_coord
         
@@ -815,9 +822,9 @@ class IntrinsicMotivation:
         self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Set"] = set_pairs
         #self.task_dictionary[task_key]["Sets_and_Buffers"][policy_key]["Buffer"] = buffer
         
-        # print(f"New set pairs: {set_pairs}")
+        print(f"New set pairs: {set_pairs}")
         #print( self.task_dictionary[task_key]["Sets_and_Buffers"])
-        # print(f"Updated policy {policy_idx} for task {task_idx}, keeping the first coordinate unchanged.")
+        print(f"Updated policy {policy_idx} for task {task_idx}, keeping the first coordinate unchanged.")
 
         #self.print_task_dict()
         
